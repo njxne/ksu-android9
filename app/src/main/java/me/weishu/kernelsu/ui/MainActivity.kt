@@ -68,7 +68,8 @@ import me.weishu.kernelsu.ui.component.bottombar.SideRail
 import me.weishu.kernelsu.ui.component.bottombar.rememberMainPagerState
 import me.weishu.kernelsu.ui.component.bottombar.useNavigationRail
 import me.weishu.kernelsu.ui.component.liquidglass.LiquidGlassBottomBar
-import me.weishu.kernelsu.ui.component.liquidglass.rememberLiquidBackdrop
+import me.weishu.kernelsu.ui.component.liquidglass.liquidLayerBackdrop
+import me.weishu.kernelsu.ui.component.liquidglass.rememberLiquidLayerBackdrop
 import me.weishu.kernelsu.ui.navigation3.IntentDispatcher
 import me.weishu.kernelsu.ui.navigation3.LocalNavigator
 import me.weishu.kernelsu.ui.navigation3.Navigator
@@ -107,7 +108,6 @@ import me.weishu.kernelsu.ui.viewmodel.ModuleViewModel
 import me.weishu.kernelsu.ui.viewmodel.SuperUserViewModel
 import top.yukonga.miuix.kmp.basic.Scaffold
 import top.yukonga.miuix.kmp.blur.layerBackdrop
-import top.yukonga.miuix.kmp.blur.rememberLayerBackdrop
 import top.yukonga.miuix.kmp.nav.core.NavDisplay
 import top.yukonga.miuix.kmp.nav.core.NavDisplayEffects
 import top.yukonga.miuix.kmp.nav.core.rememberNavSystemCornerRadius
@@ -380,7 +380,7 @@ fun MainScreen(
     }
     val blurBackdrop = rememberBlurBackdrop(enableBlur)
 
-    val backdrop = rememberLayerBackdrop {
+    val backdrop = rememberLiquidLayerBackdrop {
         drawRect(surfaceColor)
         drawContent()
     }
@@ -410,7 +410,7 @@ fun MainScreen(
                             mode = pagerMode,
                             enabled = userScrollEnabled,
                         )
-                        .then(Modifier.layerBackdrop(backdrop)),
+                        .then(Modifier.liquidLayerBackdrop(backdrop)),
                     state = mainPagerState.pagerState,
                     beyondViewportPageCount = if (contentReady) 3 else 0,
                     overscrollEffect = null,
@@ -481,7 +481,7 @@ fun MainScreen(
                     LiquidGlassBottomBar(
                         selectedIndex = { mainPagerState.selectedPage },
                         onSelected = { mainPagerState.animateToPage(it) },
-                        backdrop = rememberLiquidBackdrop(backdrop),
+                        backdrop = backdrop,
                         navigationBadge = navigationBadge,
                         modifier = Modifier.align(Alignment.BottomCenter),
                     )

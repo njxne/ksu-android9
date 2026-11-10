@@ -1,33 +1,22 @@
 package me.weishu.kernelsu.ui.component.liquidglass
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import androidx.compose.ui.graphics.GraphicsLayerScope
-import androidx.compose.ui.graphics.drawscope.DrawScope
-import androidx.compose.ui.layout.LayoutCoordinates
-import androidx.compose.ui.unit.Density
-import com.kyant.backdrop.Backdrop
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.drawscope.ContentDrawScope
+import com.kyant.backdrop.backdrops.LayerBackdrop
+import com.kyant.backdrop.backdrops.layerBackdrop
+import com.kyant.backdrop.backdrops.rememberLayerBackdrop
 
 /**
- * Adapts the manager's MIUIX backdrop to the official Kyant0 backdrop API so the liquid glass
- * bottom bar can render the same app content behind it.
+ * Backdrop source for the liquid glass bottom bar.
+ *
+ * Uses the official Kyant0 backdrop library (minSdk 21, with runtime guards for
+ * RenderEffect/RuntimeShader) instead of the MIUIX blur library, which declares minSdk 33
+ * and is not safe to draw on Android 9.
  */
-class MiuixBackdrop(
-    private val delegate: top.yukonga.miuix.kmp.blur.Backdrop,
-) : Backdrop {
-
-    override val isCoordinatesDependent: Boolean = delegate.isCoordinatesDependent
-
-    override fun DrawScope.drawBackdrop(
-        density: Density,
-        coordinates: LayoutCoordinates?,
-        layerBlock: (GraphicsLayerScope.() -> Unit)?,
-    ) {
-        with(delegate) { drawBackdrop(density, coordinates, layerBlock, 1) }
-    }
-}
-
 @Composable
-fun rememberLiquidBackdrop(
-    backdrop: top.yukonga.miuix.kmp.blur.Backdrop,
-): Backdrop = remember(backdrop) { MiuixBackdrop(backdrop) }
+fun rememberLiquidLayerBackdrop(
+    onDraw: ContentDrawScope.() -> Unit,
+): LayerBackdrop = rememberLayerBackdrop(onDraw = onDraw)
+
+fun Modifier.liquidLayerBackdrop(backdrop: LayerBackdrop): Modifier = layerBackdrop(backdrop)
