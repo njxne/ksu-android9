@@ -8,8 +8,13 @@
 - **minSdk 31 → 28**：`build.gradle.kts` 中的 `androidMinSdkVersion` 改为 28，让 APK 能装到 Android 9 设备。
 - **底栏换成官方液态玻璃 demo**：底栏改用
   [Kyant0/AndroidLiquidGlass](https://github.com/Kyant0/AndroidLiquidGlass) 官方仓库里的
-  `LiquidBottomTabs` / `LiquidBottomTab` demo 代码（`app/src/main/java/me/weishu/kernelsu/ui/component/liquidglass/`），
-  并通过 `MiuixBackdrop` 适配层复用应用原有的 backdrop，直接画在应用内容之上。
+  `LiquidBottomTabs` / `LiquidBottomTab` demo 代码，连同它依赖的
+  `DampedDragAnimation` / `InteractiveHighlight` / `DragGestureInspector` 一起放进
+  `app/src/main/java/me/weishu/kernelsu/ui/component/liquidglass/`（只改了 package 与一处 import）。
+  模糊来源用的是 Kyant0 官方 `backdrop` 库（`io.github.kyant0:backdrop`，minSdk 21，内部对
+  RenderEffect/RuntimeShader 有运行时守卫），通过 `LiquidBackdrop.kt` 里的薄封装接到
+  `MainActivity` 已有的 backdrop 上，直接画在应用内容之上。没有使用、也没有模仿
+  MIUIX blur 库（它声明 minSdk 33，在 Android 9 上不安全）。
 - **root 检测段改为伪装 root**：`ui/util/KsuCli.kt` 里的 `rootAvailable()` 不再探测真实的 root
   shell，恒返回 `true`。设备实际并没有 root，只是让管理器认为 root 可用。其余界面与代码未改动。
 
@@ -23,6 +28,13 @@ git push origin main
 
 推送后 `.github/workflows/build.yml` 会在 `ubuntu-latest` 上执行
 `./gradlew clean assembleRelease`，产物为 `manager-android9-release` artifact。
+
+### 已验证的构建结果
+
+- Commit `6aa4338`，Actions run `42826113115`，`BUILD SUCCESSFUL in 4m 40s`。
+- `aapt2 dump badging` 输出：`sdkVersion:'28'`、`targetSdkVersion:'37'`。
+- APK：`KernelSU_6aa4338_30003-release.apk`（约 3.9 MB），包名 `me.weishu.kernelsu`。
+- 以上 `sdkVersion:'28'` 已用独立的二进制 `AndroidManifest.xml` 解析交叉确认。
 
 ## 说明
 
