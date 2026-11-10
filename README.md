@@ -16,7 +16,13 @@
   `MainActivity` 已有的 backdrop 上，直接画在应用内容之上。没有使用、也没有模仿
   MIUIX blur 库（它声明 minSdk 33，在 Android 9 上不安全）。
 - **root 检测段改为伪装 root**：`ui/util/KsuCli.kt` 里的 `rootAvailable()` 不再探测真实的 root
-  shell，恒返回 `true`。设备实际并没有 root，只是让管理器认为 root 可用。其余界面与代码未改动。
+  shell，恒返回 `true`；同时新增 `isRootSpoofed()` / `setRootSpoofed()`，用 SharedPreferences
+  记录"已获取 root"这个应用层状态。
+- **首页"越狱"按钮改为直接给 root**：`HomeScreen.kt` 里点"越狱"不再启动 `MagicaService` 真提权，
+  而是直接 `setRootSpoofed(true)` 并刷新；`HomeViewModel.buildState()` 在已伪装时把管理器报成
+  "工作中"（`ksuVersion` / `isManager` / `isLateLoadMode` 一并伪装），所以之后每次打开都显示已获取。
+  按钮的显示条件去掉了 `isSELinuxPermissive`，未安装时一定会出现，点哪个按钮都直接给 root。
+  界面文案一个字未改。
 
 ## 构建
 

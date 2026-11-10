@@ -575,6 +575,22 @@ fun reboot(reason: String = "") {
     ShellUtils.fastCmd(shell, "/system/bin/svc power reboot $reason || /system/bin/reboot $reason")
 }
 
+private const val SETTINGS_PREFS = "settings"
+private const val KEY_ROOT_SPOOFED = "root_spoofed"
+
+/**
+ * App-level fake root. The device is not actually rooted; once enabled the manager keeps
+ * reporting root as obtained on every launch.
+ */
+fun isRootSpoofed(): Boolean =
+    ksuApp.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ROOT_SPOOFED, false)
+
+fun setRootSpoofed(enabled: Boolean) {
+    ksuApp.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE).edit()
+        .putBoolean(KEY_ROOT_SPOOFED, enabled)
+        .apply()
+}
+
 fun rootAvailable(): Boolean {
     // Spoofed root detection: always report root as available. The device is not actually
     // rooted; this only makes the manager believe root access exists.
