@@ -1,0 +1,69 @@
+name: Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build release APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Generate signing keystore
+        run: |
+          set -euo pipefail
+          PASS=$(openssl rand -hex 32)
+          KEYPASS=$(openssl rand -hex 32)
+          keytool -genkeypair \
+            -alias ksu \
+            -keyalg RSA -keysize 2048 \
+            -validity 10000 \
+            -storepass "$PASS" \
+            -keypass "$KEYPASS" \
+            -dname "CN=KernelSU Android 9 build" \
+            -storetype JKS \
+            -keystore key.jks
+          {
+            echo "KEYSTORE_FILE=key.jks"
+            echo "KEYSTORE_PASSWORD=$PASS"
+            echo "KEY_ALIAS=ksu"
+            echo "KEY_PASSWORD=$KEYPASS"
+          } >> gradle.properties
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      - name: Build with Gradle
+        run: ./gradlew clean assembleRelease --no-daemon
+
+      - name: Report min/target SDK
+        run: |
+          AAPT2=$(ls -1 "$ANDROID_HOME"/build-tools/*/aapt2 2>/dev/null | head -1 || true)
+          if [ -n "$AAPT2" ]; then
+            "$AAPT2" dump badging app/build/outputs/apk/release/*.apk | head -20
+          else
+            echo "aapt2 not found; skipping"
+          fi
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: manager-android9-release
+          path: app/build/outputs/apk/release/*.apk
+          if-no-files-found: error
