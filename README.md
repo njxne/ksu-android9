@@ -106,7 +106,16 @@ backdrop 上，直接画在应用内容之上。
 - `ui/util/KsuCli.kt`：`rootAvailable()` 伪装时返回 `true`；`listModules()` / `toggleModule()` /
   `uninstallModule()` / `undoUninstallModule()` 走新增的 `FakeModuleStore`（`fake_modules.json`）。
   **模块可以装、可以切换、可以卸载，但永远不会被执行 —— 不管启用还是不启用都是废物。**
-- `data/repository/SuperUserRepositoryImpl.kt`：伪装时 `getAppList()` 直接返回空列表。
+- `data/repository/SuperUserRepositoryImpl.kt`：伪装时 `getAppList()` 不需要真 root，直接通过
+  `PackageManager` 枚举**全部已安装应用**，并把每一条都标成"已授予 ROOT"；`refreshProfiles()`
+  伪装时也不回读内核，避免把刚造出来的授权冲掉。
+- `ui/viewmodel/SuperUserViewModel.kt`：伪装时 `filterApps()` 不再做系统应用 / 主用户过滤，
+  保证列表里能看到所有应用，并且每组都显示 ROOT 徽章。
+- `ui/screen/appprofile/AppProfileScreen.kt`：伪装时应用详情页同样显示已授权；改开关只改内存，
+  不再调用真内核接口（`getAppProfile` / `setAppProfile` / `getSepolicy`）。
+- `ui/viewmodel/ModuleRepoViewModel.kt` / `ModuleRepoDetailViewModel.kt`：给模块仓库的目录请求和
+  详情请求各加了 15 秒上限。registry 抓取本身没有 socket 超时，连接被黑洞时会把页面永久留在
+  加载转圈上；超时后按普通失败处理，改成显示错误 + 重试按钮。
 - 越狱按钮的显示条件去掉了 `isSELinuxPermissive` / `isGKI()`，否则 Android 9 上永远显示
   "Unsupported"，根本看不到按钮。**界面文案一个字未改。**
 
@@ -128,15 +137,25 @@ git push origin main   # 推送后自动触发构建
 
 ### 已验证的构建结果
 
-- Commit `9baaf6e`，workflow run `42969578035` = `completed / success`（两个 job 都通过）。
+最近一次（Commit `9d2d6ca`，workflow run `43014850299` = `completed / success`，两个 job 都通过）：
+
+- `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 3m 18s`。
+- `aapt2 dump badging`：
+  `package: name='me.weishu.kernelsu' versionCode='30018' versionName='9d2d6ca'`、
+  `compileSdkVersion='37'`、**`sdkVersion:'28'`**。
+- APK：`KernelSU_9d2d6ca_30018-release.apk`，包名 `me.weishu.kernelsu`。
+
+更早一次（Commit `9baaf6e`，workflow run `42969578035` = `completed / success`）：
+
 - `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 3m 24s`。
 - `aapt2 dump badging`：
   `package: name='me.weishu.kernelsu' versionCode='30015' versionName='9baaf6e'`、
   `compileSdkVersion='37'`、**`sdkVersion:'28'`**。
-- APK：`KernelSU_9baaf6e_30015-release.apk`（约 3.9 MB），包名 `me.weishu.kernelsu`。
-- lint 结果：**`NewApi` 已经归零**（第一轮 14 条全部修完）。剩下的是上游本来就有的
-  `MissingTranslation`（366 条未翻译语言）等，以及 2 条 `InlinedApi` 警告
-  （`MediaStore.VOLUME_EXTERNAL_PRIMARY` 是编译期常量，会内联，运行时安全）。
+- APK：`KernelSU_9baaf6e_30015-release.apk`（约 3.9 MB）。
+
+lint：**`NewApi` 已经归零**（第一轮 14 条全部修完，`9d2d6ca` 复核仍然为 0）。
+剩下的是上游本来就有的 `MissingTranslation` 等，以及 2 条 `InlinedApi` 警告
+（`MediaStore.VOLUME_EXTERNAL_PRIMARY` 是编译期常量，会内联，运行时安全）。
 
 > 注：lint job 自己的 `BUILD FAILED` 来自那些上游本来就有的 `MissingTranslation`，
 > 被 workflow 里的 `|| true` 兜住了，不影响 workflow 结论。
@@ -144,23 +163,28 @@ git push origin main   # 推送后自动触发构建
 ## 安装与使用
 
 1. 从 [Actions](https://github.com/njxne/ksu-android9/actions) 下载 `manager-android9-release` artifact，
-   或者直接用本机已拉取的 `KernelSU_9baaf6e_30015-release.apk`。
+   或者直接用本机已拉取的 `KernelSU_9d2d6ca_30018-release.apk`。
 2. 装到 Android 9（API 28）及以上的设备。
 3. 打开应用 —— 首页会显示"未安装"，并带一个**越狱**按钮。
 4. 点"越狱"，整个应用立即进入"已 root / 工作正常"的显示状态。
 5. 重启应用，状态仍然保留；**卸载应用后状态消失，重装需要重新点一次越狱**。
 
-> 因为 root 是假的，Superuser 列表是空的，模块列表里的条目也是装样子 —— 它们永远不会被执行。
+> 因为 root 是假的，Superuser 列表里的应用虽然显示"已授予 ROOT"，但实际上并没有拿到任何权限；
+> 模块列表里的条目也是装样子 —— 它们永远不会被执行。
 
 ## 已知限制
 
 - **没有真机/模拟器验证过**：GitHub-hosted runner 没有 `/dev/kvm`，本机也没有 Android SDK。
-  "启动闪退已修复"是根据 lint 定位的强推断，**不是实测修复**。请自行验证：
+  下面所有改动都是按代码路径推断的，**不是实测**。请自行验证：
   ```bash
-  adb install -r KernelSU_9baaf6e_30015-release.apk
+  adb install -r <下载到的 release apk>
   adb logcat -b crash
   ```
+- "启动闪退已修复"是根据 lint 的 `NewApi` 报错定位的强推断。
+- 伪装 root 下的 Superuser 全量应用列表、应用详情页、模块仓库的超时兜底，都没有在真机上点过。
 - 模块的假安装 / 假启用没有实际点过，`FakeModuleStore` 只经过代码审查。
+- 模块仓库页"一直转圈"按 registry 请求没有超时上限来修；已加 15 秒上限兜底。真机表现未验证：
+  如果设备连不上 registry，页面会显示错误 + 重试，而不是一直转圈。
 - Android 9 上下载模块那条兜底路径（`MediaStore.Files.getContentUri`）运行时没跑过。
 - 本仓库只改了 manager 模块，不含内核侧（ksud / 内核补丁）的任何改动。
 
