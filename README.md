@@ -147,7 +147,26 @@ git push origin main   # 推送后自动触发构建
 
 ### 已验证的构建结果
 
-最近一次（Commit `02e8401`，workflow run `43026547965` = `completed / success`，两个 job 都通过）：
+最近一次（Commit `54ad343`，workflow run `43032224389` = `completed / success`，两个 job 都通过）：
+
+- `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 4m 5s`。
+- `aapt2 dump badging`：
+  `package: name='me.weishu.kernelsu' versionCode='30026' versionName='54ad343'`、
+  `compileSdkVersion='37'`、**`sdkVersion:'28'`**。
+- APK：`KernelSU_Android9-release.apk`（约 3.9 MB）。
+- lint：`NewApi` = **0**、`ProtectedPermissions` = 0、`MissingPermission` = 0，第一个报错仍然是
+  上游本来就有的 `MissingTranslation`（`strings.xml` 一行没动）。
+- 这次给重启加了两条真实路径：伪装状态下先试 `PowerManager.reboot()`，再退回 `svc power reboot`；
+  两条都失败就弹 Toast 说明原因，不再静默什么都不做。
+
+更早一次（Commit `a612ad2`，workflow run `43030655931` = `completed / success`）：
+
+- `BUILD SUCCESSFUL in 4m 11s`，`versionCode='30025' versionName='a612ad2'`。
+- 这次给 `AndroidManifest.xml` 加了 `android.permission.REBOOT` 声明，lint 因此多报一条
+  `ProtectedPermissions`（"Permission is only granted to system apps"）；下一个 commit 用
+  `tools:ignore` 压掉，lint 结果恢复成上游水平。
+
+更早一次（Commit `02e8401`，workflow run `43026547965` = `completed / success`）：
 
 - `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 3m 13s`。
 - `aapt2 dump badging`：
