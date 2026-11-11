@@ -17,6 +17,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import me.weishu.kernelsu.IKsuInterface
 import me.weishu.kernelsu.Natives
+import me.weishu.kernelsu.RootGrantStore
 import me.weishu.kernelsu.RootSpoof
 import me.weishu.kernelsu.data.model.AppInfo
 import me.weishu.kernelsu.data.model.WEBVIEW_ZYGOTE_PROFILE_KEY
@@ -35,8 +36,8 @@ class SuperUserRepositoryImpl : SuperUserRepository {
     override suspend fun getAppList(): Result<Pair<List<AppInfo>, List<Int>>> = withContext(Dispatchers.IO) {
         if (RootSpoof.isEnabled()) {
             // App-level fake root: no kernel access is needed, so enumerate every installed
-            // package through the package manager and mark each one as granted root. The grant
-            // is only recorded in this process; nothing outside the app is affected.
+            // package through the package manager. Each package carries its own grant decision
+            // from [RootGrantStore]; nothing outside the app is affected.
             val pm = ksuApp.packageManager
             val apps = pm.getInstalledPackages(0).filter {
                 val ai = it.applicationInfo ?: return@filter false
@@ -47,7 +48,11 @@ class SuperUserRepositoryImpl : SuperUserRepository {
                 AppInfo(
                     label = ai.loadLabel(pm).toString(),
                     packageInfo = it,
-                    profile = Natives.Profile(name = it.packageName, currentUid = ai.uid, allowSu = true),
+                    profile = Natives.Profile(
+                        name = it.packageName,
+                        currentUid = ai.uid,
+                        allowSu = RootGrantStore.isGranted(it.packageName),
+                    ),
                 )
             }.toMutableList()
 

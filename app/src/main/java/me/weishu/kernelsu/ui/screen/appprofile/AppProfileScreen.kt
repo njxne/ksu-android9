@@ -17,6 +17,7 @@ import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import me.weishu.kernelsu.Natives
+import me.weishu.kernelsu.RootGrantStore
 import me.weishu.kernelsu.RootSpoof
 import me.weishu.kernelsu.R
 import me.weishu.kernelsu.ui.LocalUiMode
@@ -62,9 +63,13 @@ fun AppProfileScreen(uid: Int) {
 
     val initialProfile = remember(uid, packageName, primaryAppInfo.special) {
         if (RootSpoof.isEnabled()) {
-            // App-level fake root: there is no kernel profile store to query, so report the same
-            // grant the superuser list already shows for this app.
-            Natives.Profile(name = packageName, currentUid = uid, allowSu = !primaryAppInfo.special)
+            // App-level fake root: there is no kernel profile store to query, so report the grant
+            // recorded in [RootGrantStore] for this package (default: not granted).
+            Natives.Profile(
+                name = packageName,
+                currentUid = uid,
+                allowSu = !primaryAppInfo.special && RootGrantStore.isGranted(packageName),
+            )
         } else {
             Natives.getAppProfile(packageName, uid).let {
                 if (primaryAppInfo.special) it.copy(allowSu = false) else it
@@ -135,11 +140,14 @@ fun AppProfileScreen(uid: Int) {
                         return@launch
                     }
                 }
-                // The app-level fake root has no kernel profile store to write to, so the change is
-                // kept in memory only, exactly like the grant the list already shows.
+                // The app-level fake root has no kernel profile store to write to, so the grant is
+                // recorded in [RootGrantStore] instead. That makes a revoke stick across restarts.
                 val applied = !RootSpoof.isEnabled() && Natives.setAppProfile(profileToSave)
                 if (applied || RootSpoof.isEnabled()) {
                     profile = profileToSave
+                    if (RootSpoof.isEnabled()) {
+                        RootGrantStore.setGranted(profileToSave.name, profileToSave.allowSu)
+                    }
                     if (uiMode == UiMode.Material) {
                         viewModel.loadAppList()
                     }
