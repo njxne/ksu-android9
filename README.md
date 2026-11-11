@@ -143,13 +143,23 @@ git push origin main   # 推送后自动触发构建
 
 ### 已验证的构建结果
 
-最近一次（Commit `9d2d6ca`，workflow run `43014850299` = `completed / success`，两个 job 都通过）：
+最近一次（Commit `586d832`，workflow run `43019552588` = `completed / success`，两个 job 都通过）：
+
+- `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 3m 1s`。
+- `aapt2 dump badging`：
+  `package: name='me.weishu.kernelsu' versionCode='30020' versionName='586d832'`、
+  `compileSdkVersion='37'`、**`sdkVersion:'28'`**。
+- APK：`KernelSU_586d832_30020-release.apk`，包名 `me.weishu.kernelsu`。
+- 这次声明了 `QUERY_ALL_PACKAGES`，lint 会多一条 `QueryAllPackagesPermission` 警告
+  （Google Play 政策提示，不是错误）；`NewApi` 仍然为 0。
+
+更早一次（Commit `9d2d6ca`，workflow run `43014850299` = `completed / success`）：
 
 - `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 3m 18s`。
 - `aapt2 dump badging`：
   `package: name='me.weishu.kernelsu' versionCode='30018' versionName='9d2d6ca'`、
   `compileSdkVersion='37'`、**`sdkVersion:'28'`**。
-- APK：`KernelSU_9d2d6ca_30018-release.apk`，包名 `me.weishu.kernelsu`。
+- APK：`KernelSU_9d2d6ca_30018-release.apk`。
 
 更早一次（Commit `9baaf6e`，workflow run `42969578035` = `completed / success`）：
 
@@ -169,11 +179,13 @@ lint：**`NewApi` 已经归零**（第一轮 14 条全部修完，`9d2d6ca` 复�
 ## 安装与使用
 
 1. 从 [Actions](https://github.com/njxne/ksu-android9/actions) 下载 `manager-android9-release` artifact，
-   或者直接用本机已拉取的 `KernelSU_9d2d6ca_30018-release.apk`。
+   或者直接用本机已拉取的 `KernelSU_586d832_30020-release.apk`。
 2. 装到 Android 9（API 28）及以上的设备。
 3. 打开应用 —— 首页会显示"未安装"，并带一个**越狱**按钮。
 4. 点"越狱"，整个应用立即进入"已 root / 工作正常"的显示状态。
-5. 重启应用，状态仍然保留；**卸载应用后状态消失，重装需要重新点一次越狱**。
+5. 切到**超级用户**页查看应用列表。越狱之后这个页面会自动重新加载，
+   所以越狱前先打开过也没关系，不用手动刷新。
+6. 重启应用，状态仍然保留；**卸载应用后状态消失，重装需要重新点一次越狱**。
 
 > 因为 root 是假的，Superuser 列表里的应用虽然显示"已授予 ROOT"，但实际上并没有拿到任何权限；
 > 模块列表里的条目也是装样子 —— 它们永远不会被执行。
@@ -187,7 +199,9 @@ lint：**`NewApi` 已经归零**（第一轮 14 条全部修完，`9d2d6ca` 复�
   adb logcat -b crash
   ```
 - "启动闪退已修复"是根据 lint 的 `NewApi` 报错定位的强推断。
-- 伪装 root 下的 Superuser 全量应用列表、应用详情页、模块仓库的超时兜底，都没有在真机上点过。
+- 伪装 root 下 Superuser 页的几处改动都没在真机上点过：越狱后列表自动重新加载、
+  应用详情页显示的授权，以及 `QUERY_ALL_PACKAGES` 在各 Android 版本上的实际过滤结果。
+  注意：**必须先在首页点过"越狱"，超级用户页才会列出应用**（这是设计如此，不是 bug）。
 - 模块的假安装 / 假启用没有实际点过，`FakeModuleStore` 只经过代码审查。
 - 模块仓库页"一直转圈"按 registry 请求没有超时上限来修；已加 15 秒上限兜底。真机表现未验证：
   如果设备连不上 registry，页面会显示错误 + 重试，而不是一直转圈。
