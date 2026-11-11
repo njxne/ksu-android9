@@ -111,6 +111,12 @@ backdrop 上，直接画在应用内容之上。
   伪装时也不回读内核，避免把刚造出来的授权冲掉。
 - `ui/viewmodel/SuperUserViewModel.kt`：伪装时 `filterApps()` 不再做系统应用 / 主用户过滤，
   保证列表里能看到所有应用，并且每组都显示 ROOT 徽章。
+- `AndroidManifest.xml`：加了 `QUERY_ALL_PACKAGES`。应用 `targetSdk = 37`，在 Android 11+ 上
+  `getInstalledPackages()` 会被包可见性规则过滤，只能看到少量应用；声明这个权限才能列出
+  全部应用。它是**安装时自动授予的普通权限，不需要运行时弹窗申请**。
+- `ui/screen/superuser/SuperUserScreen.kt`：越狱按钮在首页，所以超级用户页要自己跟上伪装状态
+  的变化。现在监听 `RootSpoof.revision`，只要伪装已开启而列表还是空的（说明上次是越狱前加载的），
+  切到该页或回到前台时会自动重新加载。
 - `ui/screen/appprofile/AppProfileScreen.kt`：伪装时应用详情页同样显示已授权；改开关只改内存，
   不再调用真内核接口（`getAppProfile` / `setAppProfile` / `getSepolicy`）。
 - `ui/viewmodel/ModuleRepoViewModel.kt` / `ModuleRepoDetailViewModel.kt`：给模块仓库的目录请求和
