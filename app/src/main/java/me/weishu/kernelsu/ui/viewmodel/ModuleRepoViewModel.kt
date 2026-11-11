@@ -13,7 +13,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import me.weishu.kernelsu.R
+import me.weishu.kernelsu.data.model.RepoModuleList
 import me.weishu.kernelsu.data.registry.UnsupportedSchemaException
 import me.weishu.kernelsu.data.repository.ModuleRepoRepository
 import me.weishu.kernelsu.data.repository.ModuleRepoRepositoryImpl
@@ -25,6 +27,7 @@ import me.weishu.kernelsu.ui.screen.modulerepo.ModuleRepoUiState
 import me.weishu.kernelsu.ui.screen.modulerepo.RepoSort
 import me.weishu.kernelsu.ui.util.PinyinUtil
 import me.weishu.kernelsu.ui.util.isNetworkAvailable
+import java.io.IOException
 
 class ModuleRepoViewModel(
     private val repo: ModuleRepoRepository = ModuleRepoRepositoryImpl(),
@@ -33,6 +36,13 @@ class ModuleRepoViewModel(
 
     companion object {
         private const val TAG = "ModuleRepoViewModel"
+
+        /**
+         * Upper bound for one registry catalog request. The fetcher has no socket timeout of its
+         * own, so a black-holed connection would otherwise leave [ModuleRepoUiState.isRefreshing]
+         * set forever and the page stuck on its loading indicator.
+         */
+        private const val REGISTRY_FETCH_TIMEOUT_MILLIS = 15_000L
     }
 
     typealias RepoModule = me.weishu.kernelsu.data.model.RepoModule
@@ -128,7 +138,12 @@ class ModuleRepoViewModel(
                     offline = !isNetworkAvailable(ksuApp)
                 )
             }
-            val result = repo.fetchModules()
+            // The registry fetch has no socket timeout of its own; bound it so a black-holed
+            // connection cannot leave isRefreshing set forever (the page would sit on the loading
+            // indicator). A timeout is handled exactly like any other failure below.
+            val result: Result<RepoModuleList> = withTimeoutOrNull(REGISTRY_FETCH_TIMEOUT_MILLIS) {
+                repo.fetchModules()
+            } ?: Result.failure(IOException("Module registry fetch timed out"))
 
             withContext(Dispatchers.Main) {
                 result.onSuccess { list ->

@@ -34,8 +34,40 @@ class SuperUserRepositoryImpl : SuperUserRepository {
 
     override suspend fun getAppList(): Result<Pair<List<AppInfo>, List<Int>>> = withContext(Dispatchers.IO) {
         if (RootSpoof.isEnabled()) {
-            // App-level fake root: report an empty superuser list instead of demanding real root.
-            return@withContext Result.success(emptyList<AppInfo>() to emptyList<Int>())
+            // App-level fake root: no kernel access is needed, so enumerate every installed
+            // package through the package manager and mark each one as granted root. The grant
+            // is only recorded in this process; nothing outside the app is affected.
+            val pm = ksuApp.packageManager
+            val apps = pm.getInstalledPackages(0).filter {
+                val ai = it.applicationInfo ?: return@filter false
+                ai.uid != WEBVIEW_ZYGOTE_UID &&
+                        (ai.flags and ApplicationInfo.FLAG_HAS_CODE) != 0
+            }.map {
+                val ai = it.applicationInfo!!
+                AppInfo(
+                    label = ai.loadLabel(pm).toString(),
+                    packageInfo = it,
+                    profile = Natives.Profile(name = it.packageName, currentUid = ai.uid, allowSu = true),
+                )
+            }.toMutableList()
+
+            // WebView Zygote is a single system UID, not a per-user package. Reuse the system icon.
+            val systemInfo = ApplicationInfo(pm.getApplicationInfo("android", 0)).apply {
+                uid = WEBVIEW_ZYGOTE_UID
+            }
+            val placeholder = PackageInfo().apply {
+                packageName = ""
+                applicationInfo = systemInfo
+            }
+            apps += AppInfo(
+                label = "WebView Zygote",
+                packageInfo = placeholder,
+                profile = Natives.Profile(name = WEBVIEW_ZYGOTE_PROFILE_KEY, currentUid = WEBVIEW_ZYGOTE_UID),
+                profileKey = WEBVIEW_ZYGOTE_PROFILE_KEY,
+                special = true,
+            )
+
+            return@withContext Result.success(apps to emptyList())
         }
         runCatching {
             if (!KsuCli.SHELL.isRoot) {
@@ -126,7 +158,18 @@ class SuperUserRepositoryImpl : SuperUserRepository {
             if (currentApps.isEmpty()) return@runCatching emptyList()
 
             currentApps.map {
-                val profile = Natives.getAppProfile(it.profileKey, it.uid)
+                val profile = if (RootSpoof.isEnabled()) {
+                    // App-level fake root: there is no kernel profile store to read back, so keep
+                    // reporting the grant the list already showed instead of replacing it with the
+                    // (always denied) answer a real kernel would give.
+                    Natives.Profile(
+                        name = it.profileKey,
+                        currentUid = it.uid,
+                        allowSu = !it.isWebViewZygote,
+                    )
+                } else {
+                    Natives.getAppProfile(it.profileKey, it.uid)
+                }
                 it.copy(profile = profile)
             }
         }

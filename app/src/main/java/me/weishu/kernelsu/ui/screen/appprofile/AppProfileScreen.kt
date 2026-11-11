@@ -17,6 +17,7 @@ import androidx.lifecycle.compose.dropUnlessResumed
 import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.launch
 import me.weishu.kernelsu.Natives
+import me.weishu.kernelsu.RootSpoof
 import me.weishu.kernelsu.R
 import me.weishu.kernelsu.ui.LocalUiMode
 import me.weishu.kernelsu.ui.UiMode
@@ -60,11 +61,17 @@ fun AppProfileScreen(uid: Int) {
     }
 
     val initialProfile = remember(uid, packageName, primaryAppInfo.special) {
-        Natives.getAppProfile(packageName, uid).let {
-            if (primaryAppInfo.special) it.copy(allowSu = false) else it
-        }.also {
-            if (it.allowSu && !primaryAppInfo.special) {
-                it.rules = getSepolicy(packageName)
+        if (RootSpoof.isEnabled()) {
+            // App-level fake root: there is no kernel profile store to query, so report the same
+            // grant the superuser list already shows for this app.
+            Natives.Profile(name = packageName, currentUid = uid, allowSu = !primaryAppInfo.special)
+        } else {
+            Natives.getAppProfile(packageName, uid).let {
+                if (primaryAppInfo.special) it.copy(allowSu = false) else it
+            }.also {
+                if (it.allowSu && !primaryAppInfo.special) {
+                    it.rules = getSepolicy(packageName)
+                }
             }
         }
     }
@@ -114,7 +121,7 @@ fun AppProfileScreen(uid: Int) {
                 } else {
                     updatedProfile
                 }
-                if (profileToSave.allowSu) {
+                if (profileToSave.allowSu && !RootSpoof.isEnabled()) {
                     if (uid < 2000 && uid != 1000) {
                         showMessage(suNotAllowed)
                         return@launch
@@ -128,13 +135,16 @@ fun AppProfileScreen(uid: Int) {
                         return@launch
                     }
                 }
-                if (!Natives.setAppProfile(profileToSave)) {
-                    showMessage(failToUpdateAppProfile)
-                } else {
+                // The app-level fake root has no kernel profile store to write to, so the change is
+                // kept in memory only, exactly like the grant the list already shows.
+                val applied = !RootSpoof.isEnabled() && Natives.setAppProfile(profileToSave)
+                if (applied || RootSpoof.isEnabled()) {
                     profile = profileToSave
                     if (uiMode == UiMode.Material) {
                         viewModel.loadAppList()
                     }
+                } else {
+                    showMessage(failToUpdateAppProfile)
                 }
             }
         },

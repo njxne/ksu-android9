@@ -8,10 +8,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import me.weishu.kernelsu.data.model.RepoModuleDetail
 import me.weishu.kernelsu.data.registry.ModuleNotInIndexException
 import me.weishu.kernelsu.data.repository.ModuleRepoRepository
 import me.weishu.kernelsu.data.repository.ModuleRepoRepositoryImpl
+import java.io.IOException
 
 /** Loads the registry detail (and README) of one module for the detail screen. */
 class ModuleRepoDetailViewModel(
@@ -27,6 +29,14 @@ class ModuleRepoDetailViewModel(
         val loadFailed: Boolean = false,
     )
 
+    companion object {
+        /**
+         * Upper bound for one registry detail request; a black-holed connection would otherwise
+         * leave the detail screen on its loading indicator forever.
+         */
+        private const val DETAIL_FETCH_TIMEOUT_MILLIS = 15_000L
+    }
+
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state.asStateFlow()
 
@@ -40,7 +50,12 @@ class ModuleRepoDetailViewModel(
         job?.cancel()
         job = viewModelScope.launch {
             _state.update { it.copy(loaded = false) }
-            repo.fetchDetail(moduleId)
+            // Bound the request so a black-holed connection cannot leave the screen on its
+            // loading indicator; a timeout is handled like any other failure.
+            val result: Result<RepoModuleDetail> = withTimeoutOrNull(DETAIL_FETCH_TIMEOUT_MILLIS) {
+                repo.fetchDetail(moduleId)
+            } ?: Result.failure(IOException("Module registry fetch timed out"))
+            result
                 .onSuccess { detail ->
                     _state.update { it.copy(detail = detail, notInIndex = false, loadFailed = false, loaded = true) }
                 }

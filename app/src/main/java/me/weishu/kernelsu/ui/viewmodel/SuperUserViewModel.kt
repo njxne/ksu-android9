@@ -19,6 +19,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import me.weishu.kernelsu.Natives
+import me.weishu.kernelsu.RootSpoof
 import me.weishu.kernelsu.data.repository.SettingsRepository
 import me.weishu.kernelsu.data.repository.SettingsRepositoryImpl
 import me.weishu.kernelsu.data.repository.SuperUserRepository
@@ -287,6 +288,9 @@ class SuperUserViewModel(
 
         return list.filter {
             if (it.packageName == ksuApp.packageName) return@filter false
+            // App-level fake root grants every installed app, so the system/user filters would
+            // only hide apps the spoof has already allowed: show the whole list.
+            if (RootSpoof.isEnabled()) return@filter true
             // UID 1053 is the single system-wide WebView zygote (primary user only).
             if (it.isWebViewZygote) return@filter true
             if (it.allowSu || it.hasCustomProfile) {
