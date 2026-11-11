@@ -149,7 +149,21 @@ git push origin main   # 推送后自动触发构建
 
 ### 已验证的构建结果
 
-最近一次（Commit `54ad343`，workflow run `43032224389` = `completed / success`，两个 job 都通过）：
+最近一次（Commit `089d1d7`，workflow run `43037845833` = `completed / success`，两个 job 都通过）：
+
+- `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 3m 35s`。
+- `aapt2 dump badging`：
+  `package: name='me.weishu.kernelsu' versionCode='30029' versionName='089d1d7'`、
+  `compileSdkVersion='37'`、**`sdkVersion:'28'`**（`build.gradle.kts` 里 `androidMinSdkVersion = 28`）。
+- APK：`KernelSU_Android9-release.apk`（约 3.9 MB）。
+- lint：`NewApi` = **0**、`ProtectedPermissions` = 0、`MissingPermission` = 0，第一个报错仍然是
+  上游本来就有的 `MissingTranslation`（`strings.xml` 一行没动）。
+- 这次给重启加了**应用级模拟重启**：先走真路（`PowerManager.reboot()` → `svc power reboot` →
+  `ksud soft-reboot`），全都做不到时不再静默，而是盖一层 `RebootOverlay` 并重启应用进程，
+  伪装 root 照旧保留，重启菜单的选项一个都没删、每一个都点得动。第一次提交（`b825edc`）因为
+  `RebootOverlay.kt` 漏了 `import androidx.compose.runtime.getValue` 编译失败，这次补上后通过。
+
+更早一次（Commit `54ad343`，workflow run `43032224389` = `completed / success`，两个 job 都通过）：
 
 - `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 4m 5s`。
 - `aapt2 dump badging`：
