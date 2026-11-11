@@ -337,7 +337,7 @@ class WebUIDownloadInterface(private val state: WebUIState) {
                 val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                     MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
                 } else {
-                    MediaStore.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY, 0)
+                    MediaStore.Files.Media.EXTERNAL_CONTENT_URI
                 }
                 val values = android.content.ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)

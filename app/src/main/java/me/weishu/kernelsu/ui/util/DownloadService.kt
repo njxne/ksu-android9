@@ -201,7 +201,7 @@ class DownloadService : Service() {
                             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
                                 MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
                             } else {
-                                MediaStore.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY, 0)
+                                MediaStore.Files.Media.EXTERNAL_CONTENT_URI
                             },
                             values
                         ) ?: throw IOException("Failed to create download")
