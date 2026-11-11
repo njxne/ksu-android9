@@ -1,25 +1,29 @@
 package me.weishu.kernelsu.ui.util
 
-import android.icu.text.Transliterator
+import android.annotation.SuppressLint
 import android.os.Build
 
 object PinyinUtil {
 
     /**
-     * `android.icu.text.Transliterator` only exists from API 29, so on older platforms the
-     * transliteration is unavailable and the input is returned unchanged.
+     * `android.icu.text.Transliterator` only exists from API 29. The transliteration is done in
+     * a separate class so that nothing on older platforms ever loads it.
      */
-    private val transliterator: Transliterator? by lazy {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            Transliterator.getInstance("Han-Latin; Latin-ASCII; Lower")
-        } else {
-            null
-        }
-    }
-
     @Synchronized
     fun toPinyin(input: String): String {
-        val instance = transliterator ?: return input
-        return instance.transliterate(input).replace(" ", "")
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) {
+            return input
+        }
+        return IcuTransliterator.toPinyin(input)
     }
+}
+
+@SuppressLint("NewApi")
+private object IcuTransliterator {
+
+    private val transliterator =
+        android.icu.text.Transliterator.getInstance("Han-Latin; Latin-ASCII; Lower")
+
+    fun toPinyin(input: String): String =
+        transliterator.transliterate(input).replace(" ", "")
 }
