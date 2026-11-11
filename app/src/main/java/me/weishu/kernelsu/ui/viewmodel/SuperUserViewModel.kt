@@ -288,12 +288,12 @@ class SuperUserViewModel(
 
         return list.filter {
             if (it.packageName == ksuApp.packageName) return@filter false
-            // App-level fake root grants every installed app, so the system/user filters would
-            // only hide apps the spoof has already allowed: show the whole list.
-            if (RootSpoof.isEnabled()) return@filter true
             // UID 1053 is the single system-wide WebView zygote (primary user only).
             if (it.isWebViewZygote) return@filter true
-            if (it.allowSu || it.hasCustomProfile) {
+            // App-level fake root grants every installed app, so the allowSu short-circuit would
+            // surface system apps while the "show system apps" switch is off: drop it here and let
+            // the system/user filters below decide what is visible.
+            if (!RootSpoof.isEnabled() && (it.allowSu || it.hasCustomProfile)) {
                 return@filter true
             }
             val userFilter = !currentState.showOnlyPrimaryUserApps || it.uid / 100000 == 0

@@ -182,9 +182,8 @@ androidComponents {
 }
 
 base {
-    archivesName.set(
-        "${managerName.replace(" ", "_")}_${managerVersionName}_${managerVersionCode}"
-    )
+    // Keep the release file name stable so it does not carry the git describe hash.
+    archivesName.set("${managerName.replace(" ", "_")}_Android9")
 }
 
 dependencies {
