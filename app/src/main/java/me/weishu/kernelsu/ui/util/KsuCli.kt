@@ -1,15 +1,19 @@
 package me.weishu.kernelsu.ui.util
 
+import android.Manifest
 import android.content.ContentResolver
 import android.content.Context
+import android.content.pm.PackageManager
 import android.database.Cursor
 import android.net.Uri
 import android.os.Environment
 import android.os.Parcelable
+import android.os.PowerManager
 import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.system.Os
 import android.util.Log
+import android.widget.Toast
 import com.topjohnwu.superuser.CallbackList
 import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.ShellUtils
@@ -18,6 +22,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
 import me.weishu.kernelsu.BuildConfig
 import me.weishu.kernelsu.Natives
+import me.weishu.kernelsu.R
 import me.weishu.kernelsu.RootSpoof
 import me.weishu.kernelsu.core.tasks.BootKernelVersion
 import me.weishu.kernelsu.core.tasks.ExtractImage
@@ -680,15 +685,49 @@ private fun readMagic(channel: DataSourceChannel): String {
 
 fun reboot(reason: String = "") {
     if (reason == "soft_reboot") {
-        execKsud("soft-reboot", true, true)
+        // soft-reboot is a KernelSU kernel feature: it needs the patched kernel and the real ksud
+        // daemon, neither of which exists here, so report the failure instead of doing nothing.
+        if (!execKsud("soft-reboot", true, true)) {
+            Toast.makeText(ksuApp, R.string.reboot_soft_unsupported, Toast.LENGTH_LONG).show()
+        }
         return
     }
+    val spoofed = RootSpoof.isEnabled()
+    // A spoofed device has no root, so the shell cannot reboot it: PowerManager is the only path
+    // left that can still reach PowerManagerService.
+    if (spoofed && rebootWithoutRoot(reason)) return
     val shell = getRootShell()
     if (reason == "recovery") {
         // KEYCODE_POWER = 26, hide incorrect "Factory data reset" message
         ShellUtils.fastCmd(shell, "/system/bin/input keyevent 26")
     }
-    ShellUtils.fastCmd(shell, "/system/bin/svc power reboot $reason || /system/bin/reboot $reason")
+    val rebooted = ShellUtils.fastCmdResult(
+        shell, "/system/bin/svc power reboot $reason || /system/bin/reboot $reason"
+    )
+    if (spoofed && !rebooted) {
+        Toast.makeText(ksuApp, R.string.reboot_requires_real_root, Toast.LENGTH_LONG).show()
+    }
+}
+
+/**
+ * Reboots through PowerManager. Unlike the shell path this needs no root, but it does need
+ * [android.Manifest.permission.REBOOT], which is `signature|privileged` and therefore can never be
+ * granted to a third-party app at install time.
+ *
+ * @return true when the reboot was actually requested.
+ */
+private fun rebootWithoutRoot(reason: String): Boolean {
+    val powerManager = ksuApp.getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return false
+    if (ksuApp.checkSelfPermission(Manifest.permission.REBOOT) != PackageManager.PERMISSION_GRANTED) {
+        return false
+    }
+    return try {
+        powerManager.reboot(reason.ifEmpty { "reboot" })
+        true
+    } catch (e: Exception) {
+        Log.w(TAG, "reboot without root failed", e)
+        false
+    }
 }
 
 /**

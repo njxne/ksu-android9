@@ -109,8 +109,8 @@ backdrop 上，直接画在应用内容之上。
 - `data/repository/SuperUserRepositoryImpl.kt`：伪装时 `getAppList()` 不需要真 root，直接通过
   `PackageManager` 枚举**全部已安装应用**，并把每一条都标成"已授予 ROOT"；`refreshProfiles()`
   伪装时也不回读内核，避免把刚造出来的授权冲掉。
-- `ui/viewmodel/SuperUserViewModel.kt`：伪装时 `filterApps()` 不再做系统应用 / 主用户过滤，
-  保证列表里能看到所有应用，并且每组都显示 ROOT 徽章。
+- `ui/viewmodel/SuperUserViewModel.kt`：伪装时 `filterApps()` 跳过 `allowSu` 短路，让伪装出来的授权
+  也受"显示系统应用"开关约束 —— 开关关着时不显示系统应用，打开后才显示（默认 `false`）。
 - `AndroidManifest.xml`：加了 `QUERY_ALL_PACKAGES`。应用 `targetSdk = 37`，在 Android 11+ 上
   `getInstalledPackages()` 会被包可见性规则过滤，只能看到少量应用；声明这个权限才能列出
   全部应用。它是**安装时自动授予的普通权限，不需要运行时弹窗申请**。
@@ -122,6 +122,10 @@ backdrop 上，直接画在应用内容之上。
 - `ui/viewmodel/ModuleRepoViewModel.kt` / `ModuleRepoDetailViewModel.kt`：给模块仓库的目录请求和
   详情请求各加了 15 秒上限。registry 抓取本身没有 socket 超时，连接被黑洞时会把页面永久留在
   加载转圈上；超时后按普通失败处理，改成显示错误 + 重试按钮。
+- `ui/util/KsuCli.kt` 的 `reboot()`：伪装状态下先试 `PowerManager.reboot()`（唯一不需要 root 的
+  重启通道，但要 `android.permission.REBOOT`），再退回原来的 `svc power reboot` shell 路径；
+  两条都失败就弹 Toast 说明原因，不再静默什么都不做。`soft_reboot` 是内核功能，没有打补丁的内核
+  和真实 ksud 就跑不起来，同样弹 Toast。**重启菜单的选项一个都没删。**
 - 越狱按钮的显示条件去掉了 `isSELinuxPermissive` / `isGKI()`，否则 Android 9 上永远显示
   "Unsupported"，根本看不到按钮。**界面文案一个字未改。**
 
@@ -222,6 +226,11 @@ lint：**`NewApi` 已经归零**（第一轮 14 条全部修完，`9d2d6ca` 复�
 - 模块仓库页"一直转圈"按 registry 请求没有超时上限来修；已加 15 秒上限兜底。真机表现未验证：
   如果设备连不上 registry，页面会显示错误 + 重试，而不是一直转圈。
 - Android 9 上下载模块那条兜底路径（`MediaStore.Files.getContentUri`）运行时没跑过。
+- **重启在无 root 设备上做不到**：`android.permission.REBOOT` 的保护级别是
+  `signature|privileged`（AOSP `frameworks/base/core/res/AndroidManifest.xml`），第三方应用永远
+  拿不到，所以没有真实 root 就不存在任何 app 级别的重启通道。代码里保留的
+  `PowerManager.reboot()` 路径只在设备真的授予了该权限时才会生效；做不到时应用会弹 Toast 说明，
+  而不是静默没反应。重启菜单的选项一个都没删。
 - 本仓库只改了 manager 模块，不含内核侧（ksud / 内核补丁）的任何改动。
 
 ## 许可

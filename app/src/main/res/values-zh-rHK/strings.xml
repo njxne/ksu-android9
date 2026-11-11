@@ -72,6 +72,8 @@
     <string name="jailbreak_reboot_warning">現正處於越獄模式，重新啟動將失去 Root 權限，開機後需重新越獄。確定要重啟嗎？</string>
     <string name="safe_mode_module_disabled">安全模式下禁止安裝模組</string>
     <string name="reboot_to_apply">重新啟動後生效</string>
+    <string name="reboot_soft_unsupported">軟重啟需要已打補丁的核心與真實的 ksud 守護行程，本機無法執行。</string>
+    <string name="reboot_requires_real_root">無法重新啟動：本機沒有真實 ROOT。可透過 adb 授予 android.permission.REBOOT 權限，在無 ROOT 的情況下重新啟動。</string>
     <string name="module_magisk_conflict">模組已停用，因與 Magisk 有衝突！</string>
     <string name="home_learn_kernelsu">深入了解 KernelSU</string>
     <string name="home_learn_kernelsu_url">https://kernelsu.org/zh_TW/guide/what-is-kernelsu.html</string>
