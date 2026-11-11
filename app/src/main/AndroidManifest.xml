@@ -14,9 +14,11 @@
     <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
     <!-- Rebooting goes through PowerManager.reboot(), which needs no root but does need
          android.permission.REBOOT. That is signature|privileged, so the system never grants it at
-         install time; the user has to grant it over adb. Declaring it keeps the call honest and
-         lint quiet. -->
-    <uses-permission android:name="android.permission.REBOOT" />
+         install time; the user has to grant it over adb. Declaring it keeps the call honest.
+         Lint is told to look away: it cannot know the app is meant to run on a rooted device. -->
+    <uses-permission
+        android:name="android.permission.REBOOT"
+        tools:ignore="ProtectedPermissions" />
 
     <uses-permission
         android:name="${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION"
