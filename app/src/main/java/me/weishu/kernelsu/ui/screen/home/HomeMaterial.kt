@@ -198,7 +198,6 @@ private fun StatusCard(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(13.dp)) {
         val ksuActive = state.ksuVersion != null
-        val notInstalled = !ksuActive && state.kernelVersion.isGKI()
 
         val containerColor = if (ksuActive) {
             MaterialTheme.colorScheme.secondaryContainer
@@ -207,20 +206,16 @@ private fun StatusCard(
         }
         val contentColor = MaterialTheme.colorScheme.contentColorFor(containerColor)
 
-        val statusIcon = when {
-            ksuActive -> Icons.Rounded.CheckCircle
-            notInstalled -> Icons.Rounded.Warning
-            else -> Icons.Rounded.Block
+        val statusIcon = if (ksuActive) Icons.Rounded.CheckCircle else Icons.Rounded.Warning
+        val statusTitle = if (ksuActive) {
+            stringResource(R.string.home_working)
+        } else {
+            stringResource(R.string.home_not_installed)
         }
-        val statusTitle = when {
-            ksuActive -> stringResource(R.string.home_working)
-            notInstalled -> stringResource(R.string.home_not_installed)
-            else -> stringResource(R.string.home_unsupported)
-        }
-        val statusSummary = when {
-            ksuActive -> stringResource(R.string.home_working_version, "${state.ksuVersion}-${state.kernelUAPIVersion}")
-            notInstalled -> stringResource(R.string.home_click_to_install)
-            else -> stringResource(R.string.home_unsupported_reason)
+        val statusSummary = if (ksuActive) {
+            stringResource(R.string.home_working_version, "${state.ksuVersion}-${state.kernelUAPIVersion}")
+        } else {
+            stringResource(R.string.home_click_to_install)
         }
         val workingMode = if (ksuActive) {
             when (state.lkmMode) {
@@ -238,7 +233,7 @@ private fun StatusCard(
                     backgroundColor = MaterialTheme.colorScheme.primary
                 )
             }
-        } else if (notInstalled) {
+        } else if (!ksuActive) {
             {
                 Button(
                     onClick = actions.onJailbreakClick,

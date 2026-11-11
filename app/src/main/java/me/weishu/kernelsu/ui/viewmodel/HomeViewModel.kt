@@ -24,7 +24,6 @@ import me.weishu.kernelsu.ui.util.checkNewVersion
 import me.weishu.kernelsu.ui.util.getSELinuxStatusRaw
 import me.weishu.kernelsu.ui.util.module.LatestVersionInfo
 import me.weishu.kernelsu.ui.util.resolveDeviceName
-import me.weishu.kernelsu.ui.util.isRootSpoofed
 import me.weishu.kernelsu.ui.util.rootAvailable
 
 class HomeViewModel(
@@ -47,21 +46,11 @@ class HomeViewModel(
 
     private fun buildState(): HomeUiState {
         val kernelVersion = getKernelVersion()
-        val spoofed = isRootSpoofed()
-        // App-level fake root: report the manager as running with root available even though
-        // the device is not rooted.
-        val realManager = Natives.isManager
-        val isManager = realManager || spoofed
-        val ksuVersion = if (isManager) (if (realManager) Natives.version else BuildConfig.VERSION_CODE) else null
-        val kernelUAPIVersion = if (isManager) {
-            if (realManager) {
-                Natives.kernelUAPIVersion
-            } else {
-                Natives.managerUAPIVersion.takeIf { it > 0 } ?: Natives.MINIMAL_SUPPORTED_KERNEL
-            }
-        } else null
+        val isManager = Natives.isManager
+        val ksuVersion = if (isManager) Natives.version else null
+        val kernelUAPIVersion = if (isManager) Natives.kernelUAPIVersion else null
         val managerUAPIVersion = Natives.managerUAPIVersion
-        val lkmMode = if (spoofed) null else ksuVersion?.let { if (kernelVersion.isGKI()) Natives.isLkmMode else null }
+        val lkmMode = ksuVersion?.let { if (kernelVersion.isGKI()) Natives.isLkmMode else null }
         val isRootAvailable = rootAvailable()
         val managerVersion = getManagerVersion(ksuApp)
 

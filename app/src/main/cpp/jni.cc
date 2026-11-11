@@ -12,9 +12,25 @@
 #include "ksu.h"
 #include "logging.h"
 
+// App-level fake root. When enabled the JNI shim reports a rooted device without the kernel
+// actually granting anything; used by RootSpoof so the manager UI shows the "obtained" state.
+static bool g_spoof = false;
+static jint g_spoof_version = 0;
+
+extern "C"
+JNIEXPORT jboolean JNICALL
+Java_me_weishu_kernelsu_Natives_setRootSpoofedNative(JNIEnv *, jclass, jboolean enabled, jint versionCode) {
+    g_spoof = enabled;
+    g_spoof_version = versionCode;
+    return enabled;
+}
+
 extern "C"
 JNIEXPORT jint JNICALL
 Java_me_weishu_kernelsu_Natives_getVersion(JNIEnv *env, jobject) {
+    if (g_spoof) {
+        return g_spoof_version;
+    }
     int version = get_version();
     if (version > 0) {
         return version;
@@ -26,6 +42,10 @@ Java_me_weishu_kernelsu_Natives_getVersion(JNIEnv *env, jobject) {
 extern "C"
 JNIEXPORT jint JNICALL
 Java_me_weishu_kernelsu_Natives_getKernelUAPIVersion(JNIEnv *env, jobject) {
+    if (g_spoof) {
+        // Report the manager's own UAPI version so kernel/manager versions line up.
+        return get_manager_uapi_version();
+    }
     return get_kernel_uapi_version();
 }
 
@@ -38,6 +58,9 @@ Java_me_weishu_kernelsu_Natives_getManagerUAPIVersion(JNIEnv *env, jobject) {
 extern "C"
 JNIEXPORT jint JNICALL
 Java_me_weishu_kernelsu_Natives_getSuperuserCount(JNIEnv *env, jobject) {
+    if (g_spoof) {
+        return 0;
+    }
     struct ksu_new_get_allow_list_cmd cmd = {
         .count = 0
     };
@@ -72,6 +95,9 @@ Java_me_weishu_kernelsu_Natives_isLateLoadMode(JNIEnv *env, jclass clazz) {
 extern "C"
 JNIEXPORT jboolean JNICALL
 Java_me_weishu_kernelsu_Natives_isManager(JNIEnv *env, jclass clazz) {
+    if (g_spoof) {
+        return true;
+    }
     return is_manager();
 }
 

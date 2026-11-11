@@ -18,6 +18,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
 import me.weishu.kernelsu.BuildConfig
 import me.weishu.kernelsu.Natives
+import me.weishu.kernelsu.RootSpoof
 import me.weishu.kernelsu.core.tasks.BootKernelVersion
 import me.weishu.kernelsu.core.tasks.ExtractImage
 import me.weishu.kernelsu.core.tasks.ProbeResult
@@ -28,10 +29,12 @@ import me.weishu.kernelsu.data.registry.copyForInstall
 import me.weishu.kernelsu.ksuApp
 import okhttp3.OkHttpClient
 import org.json.JSONArray
+import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.charset.StandardCharsets
+import java.util.Properties
 import java.util.concurrent.TimeUnit
 import java.util.zip.ZipFile
 
@@ -142,6 +145,9 @@ fun install() {
 }
 
 fun listModules(): String {
+    if (RootSpoof.isEnabled()) {
+        return FakeModuleStore.list().toString()
+    }
     val shell = getRootShell()
 
     val out = shell.newJob()
@@ -162,6 +168,10 @@ fun getSuperuserCount(): Int {
 }
 
 fun toggleModule(id: String, enable: Boolean): Boolean {
+    if (RootSpoof.isEnabled()) {
+        // App-level fake root: flip the recorded flag only. The module is never executed.
+        return FakeModuleStore.setEnabled(id, enable)
+    }
     val cmd = if (enable) {
         "module enable $id"
     } else {
@@ -173,6 +183,9 @@ fun toggleModule(id: String, enable: Boolean): Boolean {
 }
 
 fun undoUninstallModule(id: String): Boolean {
+    if (RootSpoof.isEnabled()) {
+        return FakeModuleStore.setRemoved(id, false)
+    }
     val cmd = "module undo-uninstall $id"
     val result = execKsud(cmd, true)
     Log.i(TAG, "undo uninstall module $id result: $result")
@@ -180,6 +193,9 @@ fun undoUninstallModule(id: String): Boolean {
 }
 
 fun uninstallModule(id: String): Boolean {
+    if (RootSpoof.isEnabled()) {
+        return FakeModuleStore.setRemoved(id, true)
+    }
     val cmd = "module uninstall $id"
     val result = execKsud(cmd, true)
     Log.i(TAG, "uninstall module $id result: $result")
@@ -237,6 +253,19 @@ fun flashModule(
             onStderr(message)
             return FlashResult(1, message, false)
         }
+        if (RootSpoof.isEnabled()) {
+            // App-level fake root: record the module so it shows up in the list, but never
+            // install, enable or run it.
+            val props = readModuleProp(file)
+            if (props == null) {
+                val message = "! Failed to read module.prop"
+                onStderr(message)
+                return FlashResult(1, message, false)
+            }
+            FakeModuleStore.upsert(props)
+            onStdout("Module installed")
+            return FlashResult(0, "", false)
+        }
         val cmd = "module install ${file.absolutePath}"
         val result = flashWithIO("${getKsuDaemonPath()} $cmd", onStdout, onStderr)
         Log.i("KernelSU", "install module $uri result: $result")
@@ -262,6 +291,93 @@ private fun moduleNeedsReboot(zip: File): Boolean {
     val dir = "/data/adb/modules/$id"
     // Any failure to check counts as needing a reboot
     return !ShellUtils.fastCmdResult(getRootShell(), "[ -d $dir ] && [ ! -e $dir/update ]")
+}
+
+/**
+ * Modules recorded by the app-level fake root. They show up in the module list and can be
+ * toggled or uninstalled, but nothing here is ever installed, enabled or executed.
+ */
+private object FakeModuleStore {
+    private const val FILE_NAME = "fake_modules.json"
+
+    private fun file() = File(ksuApp.filesDir, FILE_NAME)
+
+    private fun load(): JSONArray {
+        val f = file()
+        if (!f.exists()) return JSONArray()
+        return runCatching { JSONArray(f.readText()) }.getOrDefault(JSONArray())
+    }
+
+    private fun save(array: JSONArray) {
+        runCatching { file().writeText(array.toString()) }
+    }
+
+    private fun indexOf(array: JSONArray, id: String): Int {
+        for (i in 0 until array.length()) {
+            if (array.getJSONObject(i).optString("id") == id) return i
+        }
+        return -1
+    }
+
+    fun list(): JSONArray = load()
+
+    fun upsert(module: JSONObject) {
+        val array = load()
+        val index = indexOf(array, module.optString("id"))
+        if (index >= 0) array.put(index, module) else array.put(module)
+        save(array)
+    }
+
+    fun setEnabled(id: String, enabled: Boolean): Boolean {
+        val array = load()
+        val index = indexOf(array, id)
+        if (index < 0) return false
+        array.getJSONObject(index).put("enabled", enabled)
+        save(array)
+        return true
+    }
+
+    fun setRemoved(id: String, removed: Boolean): Boolean {
+        val array = load()
+        val index = indexOf(array, id)
+        if (index < 0) return false
+        array.getJSONObject(index).put("remove", removed)
+        save(array)
+        return true
+    }
+}
+
+/** Reads `module.prop` out of a module ZIP into the JSON shape `ModuleRepositoryImpl` expects. */
+private fun readModuleProp(zip: File): JSONObject? {
+    val props = Properties()
+    return runCatching {
+        ZipFile(zip).use { archive ->
+            val entry = archive.getEntry("module.prop") ?: return@use null
+            archive.getInputStream(entry).bufferedReader().useLines { lines ->
+                lines.forEach { line ->
+                    val idx = line.indexOf('=')
+                    if (idx > 0) {
+                        props.setProperty(line.substring(0, idx).trim(), line.substring(idx + 1).trim())
+                    }
+                }
+            }
+            JSONObject().apply {
+                put("id", props.getProperty("id", "unknown"))
+                put("name", props.getProperty("name", props.getProperty("id", "Unknown")))
+                put("author", props.getProperty("author", "Unknown"))
+                put("version", props.getProperty("version", "Unknown"))
+                put("versionCode", props.getProperty("versionCode", "0").toIntOrNull() ?: 0)
+                put("description", props.getProperty("description", ""))
+                put("enabled", props.getProperty("enabled", "false").equals("true", ignoreCase = true))
+                put("update", false)
+                put("remove", false)
+                put("updateJson", props.getProperty("updateJson", ""))
+                put("web", props.getProperty("webui", "false").equals("true", ignoreCase = true))
+                put("action", props.getProperty("actionScript", "false").equals("true", ignoreCase = true))
+                put("metamodule", false)
+            }
+        }
+    }.getOrNull()
 }
 
 fun runModuleAction(
@@ -575,26 +691,20 @@ fun reboot(reason: String = "") {
     ShellUtils.fastCmd(shell, "/system/bin/svc power reboot $reason || /system/bin/reboot $reason")
 }
 
-private const val SETTINGS_PREFS = "settings"
-private const val KEY_ROOT_SPOOFED = "root_spoofed"
-
 /**
  * App-level fake root. The device is not actually rooted; once enabled the manager keeps
  * reporting root as obtained on every launch.
  */
-fun isRootSpoofed(): Boolean =
-    ksuApp.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ROOT_SPOOFED, false)
+fun isRootSpoofed(): Boolean = RootSpoof.isEnabled()
 
 fun setRootSpoofed(enabled: Boolean) {
-    ksuApp.getSharedPreferences(SETTINGS_PREFS, Context.MODE_PRIVATE).edit()
-        .putBoolean(KEY_ROOT_SPOOFED, enabled)
-        .apply()
+    RootSpoof.setEnabled(enabled)
 }
 
 fun rootAvailable(): Boolean {
-    // Spoofed root detection: always report root as available. The device is not actually
-    // rooted; this only makes the manager believe root access exists.
-    return true
+    // The only root this app can report is the app-level fake one. It is off until the user
+    // jailbreaks from the home screen, and it grants nothing to the kernel.
+    return isRootSpoofed()
 }
 
 suspend fun getCurrentKmi(): String = withContext(Dispatchers.IO) {

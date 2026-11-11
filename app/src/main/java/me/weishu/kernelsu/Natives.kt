@@ -56,6 +56,13 @@ object Natives {
     val isPrBuild: Boolean
         external get
 
+    /**
+     * Tells the native side to report a rooted device. Used by the app-level fake root: the
+     * values returned by [version], [kernelUAPIVersion] and [isManager] are overridden so the
+     * manager believes it is running on a rooted device. No real root is granted.
+     */
+    external fun setRootSpoofedNative(enabled: Boolean, versionCode: Int)
+
     external fun uidShouldUmount(uid: Int): Boolean
 
     /**

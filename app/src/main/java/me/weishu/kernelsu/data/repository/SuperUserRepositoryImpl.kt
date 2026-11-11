@@ -17,6 +17,7 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import me.weishu.kernelsu.IKsuInterface
 import me.weishu.kernelsu.Natives
+import me.weishu.kernelsu.RootSpoof
 import me.weishu.kernelsu.data.model.AppInfo
 import me.weishu.kernelsu.data.model.WEBVIEW_ZYGOTE_PROFILE_KEY
 import me.weishu.kernelsu.data.model.WEBVIEW_ZYGOTE_UID
@@ -32,6 +33,10 @@ class SuperUserRepositoryImpl : SuperUserRepository {
     }
 
     override suspend fun getAppList(): Result<Pair<List<AppInfo>, List<Int>>> = withContext(Dispatchers.IO) {
+        if (RootSpoof.isEnabled()) {
+            // App-level fake root: report an empty superuser list instead of demanding real root.
+            return@withContext Result.success(emptyList<AppInfo>() to emptyList<Int>())
+        }
         runCatching {
             if (!KsuCli.SHELL.isRoot) {
                 return@withContext Result.failure(

@@ -368,7 +368,7 @@ private fun StatusCard(
                 }
             }
 
-            state.kernelVersion.isGKI() -> {
+            else -> {
                 Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Card(
                         modifier = Modifier.weight(1f),
@@ -400,31 +400,6 @@ private fun StatusCard(
                             }
                         )
                     }
-                }
-            }
-
-            else -> {
-                Card(
-                    onClick = {
-                        if (!state.isLateLoadMode) {
-                            actions.onInstallClick()
-                        }
-                    },
-                    showIndication = !state.isLateLoadMode,
-                    pressFeedbackType = PressFeedbackType.Tilt
-                ) {
-                    BasicComponent(
-                        title = stringResource(R.string.home_unsupported),
-                        summary = stringResource(R.string.home_unsupported_reason),
-                        startAction = {
-                            Icon(
-                                Icons.Rounded.ErrorOutline,
-                                stringResource(R.string.home_unsupported),
-                                modifier = Modifier.padding(end = 16.dp),
-                                tint = colorScheme.onBackground,
-                            )
-                        }
-                    )
                 }
             }
         }
