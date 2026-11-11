@@ -2,6 +2,7 @@ package me.weishu.kernelsu.ui
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.os.SystemClock
 import android.widget.Toast
@@ -61,6 +62,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import me.weishu.kernelsu.Natives
+import me.weishu.kernelsu.RootSpoof
 import me.weishu.kernelsu.R
 import me.weishu.kernelsu.ui.component.bottombar.MainPagerState
 import me.weishu.kernelsu.ui.component.bottombar.NavigationBadgeState
@@ -136,7 +138,9 @@ class MainActivity : ComponentActivity() {
         }
 
         val isManager = Natives.isManager
-        if (isManager && Natives.kernelUAPIVersion == Natives.managerUAPIVersion) install()
+        if (isManager && Natives.kernelUAPIVersion == Natives.managerUAPIVersion && !RootSpoof.isEnabled()) {
+            install()
+        }
 
         if (savedInstanceState == null) intent?.let { intentChannel.trySend(it) }
 
@@ -159,7 +163,9 @@ class MainActivity : ComponentActivity() {
                         android.graphics.Color.TRANSPARENT
                     ) { darkMode },
                 )
-                window.isNavigationBarContrastEnforced = false
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    window.isNavigationBarContrastEnforced = false
+                }
                 onDispose { }
             }
 
@@ -312,7 +318,10 @@ fun MainScreen(
         pagerState = pagerState,
         animatePageChanges = !useNavigationRail,
     )
-    val isFullFeatured = Natives.isFullFeatured()
+    // React to the fake-root toggle so the whole shell flips to the "rooted" state immediately
+    // after the jailbreak button is pressed, instead of only on the next process start.
+    val spoofRevision by RootSpoof.revision.collectAsStateWithLifecycle()
+    val isFullFeatured = remember(spoofRevision) { Natives.isFullFeatured() }
     val pagerMode = PagerInterceptionMode.entries.getOrElse(pagerInterceptionMode) {
         PagerInterceptionMode.Native
     }

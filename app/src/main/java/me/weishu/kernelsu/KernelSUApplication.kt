@@ -40,6 +40,7 @@ class KernelSUApplication : Application(), ViewModelStoreOwner {
     override fun onCreate() {
         super.onCreate()
         ksuApp = this
+        RootSpoof.syncNative()
 
         if (!isUserUnlocked()) {
             return

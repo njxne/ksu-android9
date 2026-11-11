@@ -1,5 +1,6 @@
 package me.weishu.kernelsu.magica;
 
+import android.annotation.SuppressLint;
 import android.app.ZygotePreload;
 import android.content.pm.ApplicationInfo;
 import android.util.Log;
@@ -8,6 +9,7 @@ import androidx.annotation.NonNull;
 
 import java.io.File;
 
+@SuppressLint("NewApi")
 public class AppZygotePreload implements ZygotePreload {
     public static final String TAG = "KernelSUMagica";
 

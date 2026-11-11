@@ -1,5 +1,6 @@
 package me.weishu.kernelsu.ui.theme
 
+import android.os.Build
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.material3.ColorScheme
@@ -35,7 +36,11 @@ fun rememberKernelSUColorScheme(
 ): ColorScheme {
     val context = LocalContext.current
     val seed = if (seedColor == Color.Unspecified) {
-        (if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)).primary
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            (if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)).primary
+        } else {
+            if (isDark) Color(0xFFD0BCFF) else Color(0xFF6750A4)
+        }
     } else {
         seedColor
     }

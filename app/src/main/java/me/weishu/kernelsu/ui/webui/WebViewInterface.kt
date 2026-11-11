@@ -8,6 +8,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.net.Uri
+import android.os.Build
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
@@ -333,7 +334,11 @@ class WebUIDownloadInterface(private val state: WebUIState) {
             var pendingUri: Uri? = null
             val savedUri = try {
                 val decoded = Base64.decode(base64, Base64.DEFAULT)
-                val collection = MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                val collection = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                } else {
+                    MediaStore.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY, 0)
+                }
                 val values = android.content.ContentValues().apply {
                     put(MediaStore.MediaColumns.DISPLAY_NAME, displayName)
                     put(MediaStore.MediaColumns.MIME_TYPE, mimeType)

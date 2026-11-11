@@ -198,7 +198,11 @@ class DownloadService : Service() {
                             put(MediaStore.Downloads.IS_PENDING, 1)
                         }
                         val downloadUri = contentResolver.insert(
-                            MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY),
+                            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                                MediaStore.Downloads.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY)
+                            } else {
+                                MediaStore.getContentUri(MediaStore.VOLUME_EXTERNAL_PRIMARY, 0)
+                            },
                             values
                         ) ?: throw IOException("Failed to create download")
                         pendingUri = downloadUri
