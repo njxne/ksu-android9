@@ -97,15 +97,10 @@ jobs:
           XML=$(find app/build -name "lint-results-debug.xml" | head -1)
           echo "XML=$XML"
           if [ -n "$XML" ]; then
-            python3 - "$XML" <<'PY'
-import sys, xml.etree.ElementTree as ET
-t = ET.parse(sys.argv[1]); r = t.getroot()
-for issue in r.iter('issue'):
-    iid = issue.get('id','')
-    print(f"[{iid}] {issue.get('severity')} | {issue.get('summary','')[:220]}")
-    for c in list(issue)[:2]:
-        print("    ", (c.text or '').strip()[:200])
-PY
+            echo "=== issue ids ==="
+            grep -o 'id="[^"]*"' "$XML" | sort | uniq -c | sort -rn
+            echo "=== issue tags ==="
+            grep -o '<issue [^>]*>' "$XML" | head -300
           else
             echo "no xml report"
           fi
