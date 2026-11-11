@@ -107,8 +107,9 @@ backdrop 上，直接画在应用内容之上。
   `uninstallModule()` / `undoUninstallModule()` 走新增的 `FakeModuleStore`（`fake_modules.json`）。
   **模块可以装、可以切换、可以卸载，但永远不会被执行 —— 不管启用还是不启用都是废物。**
 - `data/repository/SuperUserRepositoryImpl.kt`：伪装时 `getAppList()` 不需要真 root，直接通过
-  `PackageManager` 枚举**全部已安装应用**，并把每一条都标成"已授予 ROOT"；`refreshProfiles()`
-  伪装时也不回读内核，避免把刚造出来的授权冲掉。
+  `PackageManager` 枚举**全部已安装应用**，每条的授权状态取自 `RootGrantStore`（默认**不授权**，
+  和真机 KSU 一样要逐个应用手动允许）；`refreshProfiles()` 伪装时也不回读内核，避免把刚造出来的
+  授权冲掉。
 - `ui/viewmodel/SuperUserViewModel.kt`：伪装时 `filterApps()` 跳过 `allowSu` 短路，让伪装出来的授权
   也受"显示系统应用"开关约束 —— 开关关着时不显示系统应用，打开后才显示（默认 `false`）。
 - `AndroidManifest.xml`：加了 `QUERY_ALL_PACKAGES`。应用 `targetSdk = 37`，在 Android 11+ 上
@@ -117,8 +118,9 @@ backdrop 上，直接画在应用内容之上。
 - `ui/screen/superuser/SuperUserScreen.kt`：越狱按钮在首页，所以超级用户页要自己跟上伪装状态
   的变化。现在监听 `RootSpoof.revision`，只要伪装已开启而列表还是空的（说明上次是越狱前加载的），
   切到该页或回到前台时会自动重新加载。
-- `ui/screen/appprofile/AppProfileScreen.kt`：伪装时应用详情页同样显示已授权；改开关只改内存，
-  不再调用真内核接口（`getAppProfile` / `setAppProfile` / `getSepolicy`）。
+- `ui/screen/appprofile/AppProfileScreen.kt` + 新增的 `RootGrantStore.kt`：伪装时应用详情页显示
+  `RootGrantStore` 里记录的授权（默认不授权）；改开关会写回 `RootGrantStore`，所以**关掉授权后
+  重开应用仍然是关闭的**，不再调用真内核接口（`getAppProfile` / `setAppProfile` / `getSepolicy`）。
 - `ui/viewmodel/ModuleRepoViewModel.kt` / `ModuleRepoDetailViewModel.kt`：给模块仓库的目录请求和
   详情请求各加了 15 秒上限。registry 抓取本身没有 socket 超时，连接被黑洞时会把页面永久留在
   加载转圈上；超时后按普通失败处理，改成显示错误 + 重试按钮。
@@ -149,19 +151,18 @@ git push origin main   # 推送后自动触发构建
 
 ### 已验证的构建结果
 
-最近一次（Commit `089d1d7`，workflow run `43037845833` = `completed / success`，两个 job 都通过）：
+最近一次（Commit `7445492`，workflow run `43119478167` = `completed / success`，两个 job 都通过）：
 
-- `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 3m 35s`。
+- `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 3m 15s`。
 - `aapt2 dump badging`：
-  `package: name='me.weishu.kernelsu' versionCode='30029' versionName='089d1d7'`、
+  `package: name='me.weishu.kernelsu' versionCode='30031' versionName='7445492'`、
   `compileSdkVersion='37'`、**`sdkVersion:'28'`**（`build.gradle.kts` 里 `androidMinSdkVersion = 28`）。
 - APK：`KernelSU_Android9-release.apk`（约 3.9 MB）。
 - lint：`NewApi` = **0**、`ProtectedPermissions` = 0、`MissingPermission` = 0，第一个报错仍然是
   上游本来就有的 `MissingTranslation`（`strings.xml` 一行没动）。
-- 这次给重启加了**应用级模拟重启**：先走真路（`PowerManager.reboot()` → `svc power reboot` →
-  `ksud soft-reboot`），全都做不到时不再静默，而是盖一层 `RebootOverlay` 并重启应用进程，
-  伪装 root 照旧保留，重启菜单的选项一个都没删、每一个都点得动。第一次提交（`b825edc`）因为
-  `RebootOverlay.kt` 漏了 `import androidx.compose.runtime.getValue` 编译失败，这次补上后通过。
+- 这次把伪装 root 的**应用授权改成和真机 KSU 一致**：新增 `RootGrantStore`（按包名记录授权，存应用
+  私有偏好），默认**不授权**，改成逐个应用手动允许；关掉授权会写回存储，**重开应用仍然是关闭的**
+  （之前只改内存，重开又变回已授权）。
 
 更早一次（Commit `54ad343`，workflow run `43032224389` = `completed / success`，两个 job 都通过）：
 
