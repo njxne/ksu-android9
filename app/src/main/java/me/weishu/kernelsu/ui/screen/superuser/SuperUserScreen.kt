@@ -11,6 +11,7 @@ import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.compose.ui.unit.Dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import me.weishu.kernelsu.RootSpoof
 import me.weishu.kernelsu.ui.component.SearchStatus
 import me.weishu.kernelsu.ui.LocalUiMode
 import me.weishu.kernelsu.ui.UiMode
@@ -28,16 +29,25 @@ fun SuperUserPager(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val latestIsCurrentPage by rememberUpdatedState(isCurrentPage)
     val initialResumeHandled = rememberSaveable { mutableStateOf(false) }
+    // The jailbreak button lives on the home screen. The superuser list has to pick the new
+    // fake-root state up on its own, or it keeps showing the empty list it loaded before.
+    val spoofRevision by RootSpoof.revision.collectAsStateWithLifecycle()
 
-    LaunchedEffect(isCurrentPage) {
-        if (isCurrentPage) {
-            val state = viewModel.uiState.value
-            if (!state.hasLoaded && !state.isRefreshing) {
-                viewModel.initializePreferences()
-                viewModel.loadAppList()
+    LaunchedEffect(isCurrentPage, spoofRevision) {
+        if (!isCurrentPage) {
+            if (!uiState.searchStatus.isCollapsed()) {
+                viewModel.updateSearchStatus(uiState.searchStatus.copy(searchText = "", current = SearchStatus.Status.COLLAPSED))
             }
-        } else if (!uiState.searchStatus.isCollapsed()) {
-            viewModel.updateSearchStatus(uiState.searchStatus.copy(searchText = "", current = SearchStatus.Status.COLLAPSED))
+            return@LaunchedEffect
+        }
+
+        val state = viewModel.uiState.value
+        // Reload when nothing has loaded yet, or when the fake root is on but the list is still
+        // empty (it was fetched before the jailbreak).
+        val needsLoad = !state.hasLoaded || (RootSpoof.isEnabled() && state.groupedApps.isEmpty())
+        if (needsLoad && !state.isRefreshing) {
+            viewModel.initializePreferences()
+            viewModel.loadAppList(force = true)
         }
     }
 
@@ -45,9 +55,9 @@ fun SuperUserPager(
         if (initialResumeHandled.value && latestIsCurrentPage) {
             val state = viewModel.uiState.value
             if (!state.isRefreshing) {
-                if (!state.hasLoaded) {
+                if (!state.hasLoaded || (RootSpoof.isEnabled() && state.groupedApps.isEmpty())) {
                     viewModel.initializePreferences()
-                    viewModel.loadAppList()
+                    viewModel.loadAppList(force = true)
                 } else if (viewModel.isNeedRefresh) {
                     viewModel.loadAppList(resort = false)
                 }
