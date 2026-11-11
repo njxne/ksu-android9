@@ -72,6 +72,7 @@ import me.weishu.kernelsu.ui.component.bottombar.useNavigationRail
 import me.weishu.kernelsu.ui.component.liquidglass.LiquidGlassBottomBar
 import me.weishu.kernelsu.ui.component.liquidglass.liquidLayerBackdrop
 import me.weishu.kernelsu.ui.component.liquidglass.rememberLiquidLayerBackdrop
+import me.weishu.kernelsu.ui.component.rebootoverlay.RebootOverlay
 import me.weishu.kernelsu.ui.navigation3.IntentDispatcher
 import me.weishu.kernelsu.ui.navigation3.LocalNavigator
 import me.weishu.kernelsu.ui.navigation3.Navigator
@@ -279,12 +280,17 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    when (uiMode) {
-                        UiMode.Material -> androidx.compose.material3.Scaffold(
-                            containerColor = MaterialTheme.colorScheme.surfaceContainer
-                        ) { navDisplay() }
+                    Box {
+                        when (uiMode) {
+                            UiMode.Material -> androidx.compose.material3.Scaffold(
+                                containerColor = MaterialTheme.colorScheme.surfaceContainer
+                            ) { navDisplay() }
 
-                        UiMode.Miuix -> Scaffold { navDisplay() }
+                            UiMode.Miuix -> Scaffold { navDisplay() }
+                        }
+                        // Above the navigation content, so the simulated reboot is visible from
+                        // whichever page the restart was requested on.
+                        RebootOverlay()
                     }
                     SideEffect { contentReady = true }
                 }

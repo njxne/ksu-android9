@@ -91,8 +91,8 @@
     <string name="jailbreak_reboot_warning">当前处于越狱模式，重启后将失去 Root 权限，开机后需要重新越狱。确定要重启吗？</string>
     <string name="safe_mode_module_disabled">处于安全模式下，禁止安装模块</string>
     <string name="reboot_to_apply">重启生效</string>
-    <string name="reboot_soft_unsupported">软重启需要已打补丁的内核和真实的 ksud 守护进程，本机无法运行。</string>
-    <string name="reboot_requires_real_root">无法重启：本机没有真实 ROOT。可通过 adb 授予 android.permission.REBOOT 权限，从而在无 ROOT 的情况下重启。</string>
+    <string name="rebooting">正在重启…</string>
+    <string name="reboot_simulated_notice">本机没有真实 ROOT，只重启应用。</string>
     <string name="module_magisk_conflict">因与 Magisk 有冲突，所有模块不可用！</string>
     <string name="home_learn_kernelsu">了解 KernelSU</string>
     <string name="home_learn_kernelsu_url">https://kernelsu.org/zh_CN/guide/what-is-kernelsu.html</string>

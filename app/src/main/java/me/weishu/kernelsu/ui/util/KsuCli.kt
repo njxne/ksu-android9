@@ -13,7 +13,6 @@ import android.os.SystemClock
 import android.provider.OpenableColumns
 import android.system.Os
 import android.util.Log
-import android.widget.Toast
 import com.topjohnwu.superuser.CallbackList
 import com.topjohnwu.superuser.Shell
 import com.topjohnwu.superuser.ShellUtils
@@ -22,7 +21,6 @@ import kotlinx.coroutines.withContext
 import kotlinx.parcelize.Parcelize
 import me.weishu.kernelsu.BuildConfig
 import me.weishu.kernelsu.Natives
-import me.weishu.kernelsu.R
 import me.weishu.kernelsu.RootSpoof
 import me.weishu.kernelsu.core.tasks.BootKernelVersion
 import me.weishu.kernelsu.core.tasks.ExtractImage
@@ -684,29 +682,30 @@ private fun readMagic(channel: DataSourceChannel): String {
 }
 
 fun reboot(reason: String = "") {
+    // Try to reboot for real first: a rooted device goes through the shell, and a device that
+    // happens to hold android.permission.REBOOT goes through PowerManager.
     if (reason == "soft_reboot") {
         // soft-reboot is a KernelSU kernel feature: it needs the patched kernel and the real ksud
-        // daemon, neither of which exists here, so report the failure instead of doing nothing.
-        if (!execKsud("soft-reboot", true, true)) {
-            Toast.makeText(ksuApp, R.string.reboot_soft_unsupported, Toast.LENGTH_LONG).show()
+        // daemon, so on a device without root this cannot succeed.
+        if (execKsud("soft-reboot", true, true)) return
+    } else {
+        if (rebootWithoutRoot(reason)) return
+        val shell = getRootShell()
+        if (reason == "recovery") {
+            // KEYCODE_POWER = 26, hide incorrect "Factory data reset" message
+            ShellUtils.fastCmd(shell, "/system/bin/input keyevent 26")
         }
-        return
+        if (ShellUtils.fastCmdResult(
+                shell, "/system/bin/svc power reboot $reason || /system/bin/reboot $reason"
+            )
+        ) {
+            return
+        }
     }
-    val spoofed = RootSpoof.isEnabled()
-    // A spoofed device has no root, so the shell cannot reboot it: PowerManager is the only path
-    // left that can still reach PowerManagerService.
-    if (spoofed && rebootWithoutRoot(reason)) return
-    val shell = getRootShell()
-    if (reason == "recovery") {
-        // KEYCODE_POWER = 26, hide incorrect "Factory data reset" message
-        ShellUtils.fastCmd(shell, "/system/bin/input keyevent 26")
-    }
-    val rebooted = ShellUtils.fastCmdResult(
-        shell, "/system/bin/svc power reboot $reason || /system/bin/reboot $reason"
-    )
-    if (spoofed && !rebooted) {
-        Toast.makeText(ksuApp, R.string.reboot_requires_real_root, Toast.LENGTH_LONG).show()
-    }
+    if (!RootSpoof.isEnabled()) return
+    // No real reboot is possible here - Android does not let a third-party app reboot a device
+    // without root - so restart the manager itself instead of leaving the button dead.
+    RebootSimulator.begin()
 }
 
 /**
