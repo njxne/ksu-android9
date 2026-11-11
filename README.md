@@ -143,7 +143,21 @@ git push origin main   # 推送后自动触发构建
 
 ### 已验证的构建结果
 
-最近一次（Commit `586d832`，workflow run `43019552588` = `completed / success`，两个 job 都通过）：
+最近一次（Commit `02e8401`，workflow run `43026547965` = `completed / success`，两个 job 都通过）：
+
+- `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 3m 13s`。
+- `aapt2 dump badging`：
+  `package: name='me.weishu.kernelsu' versionCode='30023' versionName='02e8401'`、
+  `compileSdkVersion='37'`、**`sdkVersion:'28'`**。
+- APK：`KernelSU_Android9-release.apk`（约 3.9 MB）。文件名不再带 git 哈希和 `versionCode`
+  （`app/build.gradle.kts` 的 `archivesName` 固定成 `KernelSU_Android9`），版本看 badging 里的
+  `versionCode` / `versionName`。
+- lint：`NewApi` = **0**（`Lint API compatibility` job 的 `BUILD FAILED` 仍然是上游本来就有的
+  `MissingTranslation`，`strings.xml` 一行没动）。
+- 这次让"显示系统应用"开关在伪装 root 下也真正生效：伪装状态不再无条件列出全部应用，
+  系统应用仍按开关决定是否显示（改动在 `SuperUserViewModel.filterApps`）。
+
+更早一次（Commit `586d832`，workflow run `43019552588` = `completed / success`）：
 
 - `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 3m 1s`。
 - `aapt2 dump badging`：
@@ -179,12 +193,13 @@ lint：**`NewApi` 已经归零**（第一轮 14 条全部修完，`9d2d6ca` 复�
 ## 安装与使用
 
 1. 从 [Actions](https://github.com/njxne/ksu-android9/actions) 下载 `manager-android9-release` artifact，
-   或者直接用本机已拉取的 `KernelSU_586d832_30020-release.apk`。
+   或者直接用本机已拉取的 `KernelSU_Android9-release.apk`。
 2. 装到 Android 9（API 28）及以上的设备。
 3. 打开应用 —— 首页会显示"未安装"，并带一个**越狱**按钮。
 4. 点"越狱"，整个应用立即进入"已 root / 工作正常"的显示状态。
 5. 切到**超级用户**页查看应用列表。越狱之后这个页面会自动重新加载，
    所以越狱前先打开过也没关系，不用手动刷新。
+   列表默认只显示用户应用；想看系统应用，打开"显示系统应用"开关即可。
 6. 重启应用，状态仍然保留；**卸载应用后状态消失，重装需要重新点一次越狱**。
 
 > 因为 root 是假的，Superuser 列表里的应用虽然显示"已授予 ROOT"，但实际上并没有拿到任何权限；
@@ -200,7 +215,8 @@ lint：**`NewApi` 已经归零**（第一轮 14 条全部修完，`9d2d6ca` 复�
   ```
 - "启动闪退已修复"是根据 lint 的 `NewApi` 报错定位的强推断。
 - 伪装 root 下 Superuser 页的几处改动都没在真机上点过：越狱后列表自动重新加载、
-  应用详情页显示的授权，以及 `QUERY_ALL_PACKAGES` 在各 Android 版本上的实际过滤结果。
+  应用详情页显示的授权、"显示系统应用"开关的实际过滤结果，以及 `QUERY_ALL_PACKAGES`
+  在各 Android 版本上的实际过滤结果。
   注意：**必须先在首页点过"越狱"，超级用户页才会列出应用**（这是设计如此，不是 bug）。
 - 模块的假安装 / 假启用没有实际点过，`FakeModuleStore` 只经过代码审查。
 - 模块仓库页"一直转圈"按 registry 请求没有超时上限来修；已加 15 秒上限兜底。真机表现未验证：
