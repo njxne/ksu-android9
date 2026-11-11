@@ -2,6 +2,8 @@ name: Lint API compatibility
 
 on:
   workflow_dispatch:
+  push:
+    branches: [ main ]
 
 permissions:
   contents: read
