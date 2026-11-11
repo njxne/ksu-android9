@@ -71,8 +71,16 @@ git push origin main
 
 ### 已验证的构建结果
 
-- 最近一次 `Build` workflow run 为 `completed / success`（build + lint 两个 job 都通过）。
-- `aapt2 dump badging`：`package: name='me.weishu.kernelsu'`，`minSdk` 为 28，`targetSdk` 为 37。
+- Commit `9baaf6e`，workflow run `42969578035` = `completed / success`（`Build release APK` 与
+  `Lint API compatibility` 两个 job 都通过）。
+- `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 3m 24s`。
+- `aapt2 dump badging` 输出：
+  `package: name='me.weishu.kernelsu' versionCode='30015' versionName='9baaf6e'`、
+  `compileSdkVersion='37'`、**`sdkVersion:'28'`**。
+- APK：`KernelSU_9baaf6e_30015-release.apk`（约 3.9 MB），包名 `me.weishu.kernelsu`。
+- lint 结果：**`NewApi` 已经归零**（第一轮 14 条全部修完）。剩下的是上游本来就有的
+  `MissingTranslation`（366 条，未翻译语言）等，以及 2 条 `InlinedApi` 警告
+  （`MediaStore.VOLUME_EXTERNAL_PRIMARY` 是编译期常量，会内联，运行时安全）。
 
 ## 说明
 
