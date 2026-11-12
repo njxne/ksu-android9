@@ -19,26 +19,13 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Generate signing keystore
+      - name: Verify signing keystore
         run: |
           set -euo pipefail
-          PASS=$(openssl rand -hex 32)
-          KEYPASS=$(openssl rand -hex 32)
-          keytool -genkeypair \
-            -alias ksu \
-            -keyalg RSA -keysize 2048 \
-            -validity 10000 \
-            -storepass "$PASS" \
-            -keypass "$KEYPASS" \
-            -dname "CN=KernelSU Android 9 build" \
-            -storetype JKS \
-            -keystore key.jks
-          {
-            echo "KEYSTORE_FILE=key.jks"
-            echo "KEYSTORE_PASSWORD=$PASS"
-            echo "KEY_ALIAS=ksu"
-            echo "KEY_PASSWORD=$KEYPASS"
-          } >> gradle.properties
+          # The keystore is committed, so every build is signed with the same key. A stable
+          # signature is required for the APK to install as an update over the previous build.
+          test -f key.jks
+          keytool -list -keystore key.jks -storepass kernelsu -alias ksu >/dev/null
 
       - name: Set up Java
         uses: actions/setup-java@v6
