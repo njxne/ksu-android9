@@ -151,7 +151,19 @@ git push origin main   # 推送后自动触发构建
 
 ### 已验证的构建结果
 
-最近一次（Commit `7445492`，workflow run `43119478167` = `completed / success`，两个 job 都通过）：
+最近一次（Commit `d6f2d04`，workflow run `43158328736` = `completed / success`，两个 job 都通过）：
+
+- `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 3m 11s`。
+- `aapt2 dump badging`：
+  `package: name='me.weishu.kernelsu' versionCode='30033' versionName='d6f2d04'`、
+  `compileSdkVersion='37'`、**`sdkVersion:'28'`**。
+- APK：`KernelSU_Android9-release.apk`（约 3.9 MB）。
+- lint：`NewApi` = **0**、`ProtectedPermissions` = 0、`MissingPermission` = 0。
+- **签名固定**：`key.jks` 已提交进仓库（`gradle.properties` 里的 `KEYSTORE_*` 指向它），CI 不再每次
+  `openssl rand` 现造新 key。证书 SHA-256 = `93:99:3C:3F:1F:5E:D0:07:13:49:E6:09:5E:FA:D2:70:4C:2A:83:B6:B3:CB:97:F7:35:6B:32:0E:79:25:4E:95`。
+  之后每个版本都用同一把 key 签名，可以覆盖安装升级。
+
+更早一次（Commit `7445492`，workflow run `43119478167` = `completed / success`，两个 job 都通过）：
 
 - `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 3m 15s`。
 - `aapt2 dump badging`：
