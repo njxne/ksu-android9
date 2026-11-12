@@ -151,7 +151,19 @@ git push origin main   # 推送后自动触发构建
 
 ### 已验证的构建结果
 
-最近一次（Commit `d6f2d04`，workflow run `43158328736` = `completed / success`，两个 job 都通过）：
+最近一次（Commit `17fffa3`，workflow run `43197256713` = `completed / success`，两个 job 都通过）：
+
+- `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 3m 32s`。
+- `aapt2 dump badging`：
+  `package: name='me.weishu.kernelsu' versionCode='30035' versionName='17fffa3'`、
+  `compileSdkVersion='37'`、**`sdkVersion:'28'`**。
+- APK：`KernelSU_Android9-release.apk`（约 3.9 MB），固定签名证书。
+- lint：`NewApi` = **0**、`ProtectedPermissions` = 0、`MissingPermission` = 0。
+- 这次把应用详情页改成**所有配置控件始终显示**：root 模式（默认/模板/自定义 + UID/GID/能力/
+  SELinux）和非 root 配置不再按授权状态互斥隐藏，授权开关照样默认关闭。**包名未动**
+  （`me.weishu.kernelsu`），固定签名照旧，可直接覆盖安装。
+
+更早一次（Commit `d6f2d04`，workflow run `43158328736` = `completed / success`，两个 job 都通过）：
 
 - `./gradlew clean assembleRelease` → `BUILD SUCCESSFUL in 3m 11s`。
 - `aapt2 dump badging`：
