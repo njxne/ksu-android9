@@ -287,22 +287,23 @@ private fun AppProfileInner(
                             onProfileChange = onProfileChange
                         )
                     }
-                } else {
-                    ProfileBox(mode, false) {
-                        onProfileChange(profile.copy(nonRootUseDefault = (it == Mode.Default)))
-                    }
-                    AnimatedVisibility(
-                        visible = true,
-                        enter = expandVertically() + fadeIn(),
-                        exit = shrinkVertically() + fadeOut()
-                    ) {
-                        AppProfileConfig(
-                            fixedName = true,
-                            profile = profile,
-                            enabled = mode == Mode.Custom,
-                            onProfileChange = onProfileChange
-                        )
-                    }
+                }
+                // The non-root profile config stays reachable whether or not root is granted, so
+                // no control in this screen ever disappears behind the grant state.
+                ProfileBox(nonRootMode, false) {
+                    onProfileChange(profile.copy(nonRootUseDefault = (it == Mode.Default)))
+                }
+                AnimatedVisibility(
+                    visible = true,
+                    enter = expandVertically() + fadeIn(),
+                    exit = shrinkVertically() + fadeOut()
+                ) {
+                    AppProfileConfig(
+                        fixedName = true,
+                        profile = profile,
+                        enabled = nonRootMode == Mode.Custom,
+                        onProfileChange = onProfileChange
+                    )
                 }
                 if (isUidGroup) {
                     val appItems = affectedApps.map<SuperUserViewModel.AppInfo, @Composable () -> Unit> { app ->

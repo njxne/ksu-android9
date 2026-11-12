@@ -337,57 +337,54 @@ private fun AppProfileInner(
             mutableStateOf(initialRootMode)
         }
         val nonRootMode = if (profile.nonRootUseDefault) Mode.Default else Mode.Custom
-        val dropdownMode = if (isRootGranted) rootMode else nonRootMode
-        ProfileBox(dropdownMode, isRootGranted) { mode ->
-            if (isRootGranted) {
-                when (mode) {
-                    Mode.Default, Mode.Custom -> {
-                        onProfileChange(
-                            profile.copy(
-                                rootUseDefault = mode == Mode.Default,
-                                rootTemplate = null
-                            )
+        ProfileBox(rootMode, true) { mode ->
+            when (mode) {
+                Mode.Default, Mode.Custom -> {
+                    onProfileChange(
+                        profile.copy(
+                            rootUseDefault = mode == Mode.Default,
+                            rootTemplate = null
                         )
-                        rootMode = mode
-                    }
+                    )
+                    rootMode = mode
+                }
 
-                    Mode.Template -> {
-                        if (templates.isNotEmpty()) {
-                            val selected = profile.rootTemplate ?: templates[0]
-                            val info = me.weishu.kernelsu.ui.viewmodel.getTemplateInfoById(selected)
-                            if (info != null && setSepolicy(selected, info.rules.joinToString("\n"))) {
-                                onProfileChange(
-                                    profile.copy(
-                                        rootUseDefault = false,
-                                        rootTemplate = selected,
-                                        uid = info.uid,
-                                        gid = info.gid,
-                                        groups = info.groups,
-                                        capabilities = info.capabilities,
-                                        context = info.context,
-                                        namespace = info.namespace,
-                                    )
+                Mode.Template -> {
+                    if (templates.isNotEmpty()) {
+                        val selected = profile.rootTemplate ?: templates[0]
+                        val info = me.weishu.kernelsu.ui.viewmodel.getTemplateInfoById(selected)
+                        if (info != null && setSepolicy(selected, info.rules.joinToString("\n"))) {
+                            onProfileChange(
+                                profile.copy(
+                                    rootUseDefault = false,
+                                    rootTemplate = selected,
+                                    uid = info.uid,
+                                    gid = info.gid,
+                                    groups = info.groups,
+                                    capabilities = info.capabilities,
+                                    context = info.context,
+                                    namespace = info.namespace,
                                 )
-                            } else if (profile.rootTemplate != selected || profile.rootUseDefault) {
-                                onProfileChange(
-                                    profile.copy(
-                                        rootUseDefault = false,
-                                        rootTemplate = selected
-                                    )
+                            )
+                        } else if (profile.rootTemplate != selected || profile.rootUseDefault) {
+                            onProfileChange(
+                                profile.copy(
+                                    rootUseDefault = false,
+                                    rootTemplate = selected
                                 )
-                            }
-                            rootMode = Mode.Template
+                            )
                         }
+                        rootMode = Mode.Template
                     }
                 }
-            } else {
-                onProfileChange(profile.copy(nonRootUseDefault = (mode == Mode.Default)))
             }
         }
         Spacer(Modifier.height(12.dp))
 
+        // Both the root and non-root profile configs stay reachable whether or not root is
+        // granted, so no control in this screen ever disappears behind the grant state.
         AnimatedVisibility(
-            visible = isRootGranted,
+            visible = true,
             enter = fadeIn() + expandVertically(),
             exit = fadeOut() + shrinkVertically()
         ) {
@@ -424,7 +421,7 @@ private fun AppProfileInner(
             }
         }
         AnimatedVisibility(
-            visible = !isRootGranted,
+            visible = true,
             enter = fadeIn() + expandVertically(),
             exit = fadeOut() + shrinkVertically()
         ) {
@@ -434,6 +431,9 @@ private fun AppProfileInner(
                     .padding(horizontal = 12.dp)
                     .padding(bottom = if (nonRootMode != Mode.Default) 12.dp else 0.dp),
             ) {
+                ProfileBox(nonRootMode, false) { mode ->
+                    onProfileChange(profile.copy(nonRootUseDefault = (mode == Mode.Default)))
+                }
                 AnimatedVisibility(
                     visible = nonRootMode == Mode.Custom,
                     enter = fadeIn() + expandVertically(),
